@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 #define BACKLOG 10
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 2048
 
 void *get_in_addr(struct sockaddr *sa) {
   if (sa->sa_family == AF_INET) {
