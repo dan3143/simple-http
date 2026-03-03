@@ -12,7 +12,6 @@
 
 #define HTML_404 "404.html"
 #define ROOT_DIR "./static"
-#define BUFFER_SIZE 1024
 #define METHOD_IDX 0
 #define ROUTE_IDX 1
 #define FILENAME_IDX 2
@@ -22,16 +21,20 @@ char *ROUTES[][3] = {
     {"GET", "/about", "about.html"},
 };
 
-char *ALLOWED_EXTENSIONS[] = {"css", "js", "jpg", "ico", "png", "gif", "ttf"};
+char *EXT_TO_MIME_TYPE[][2] = {{"css", "text/css"},
+                               {"js", "text/js"},
+                               {"gif", "image/gif"},
+                               {"html", "text/html"},
+                               {"ico", "image/vnd.microsoft.icon"},
+                               {"jpg", "image/jpeg"},
+                               {"jpeg", "image/jpeg"},
+                               {"json", "application/json"},
+                               {"md", "text/markdown"},
+                               {"png", "image/png"}};
 
-bool file_exists(char *filename) {
-  FILE *fp = fopen(filename, "r");
-  bool exists = true;
-  if (fp == NULL) {
-    exists = false;
-  }
-  fclose(fp);
-  return exists;
+bool is_extension_supported(char *extension) {
+  int n = sizeof(EXT_TO_MIME_TYPE) / sizeof(EXT_TO_MIME_TYPE[0]);
+  return false;
 }
 
 void serveHTML(int socketfd, char *filename) {
@@ -89,31 +92,21 @@ void process_routes(int socketfd, char *method, char *route) {
   serveHTML(socketfd, fullpath);
 }
 
-void process_http(int socketfd, char *buffer) {
-  char *http_method, *route, *first_line;
-  first_line = strtok(buffer, "\n");
+void handle_http_request(int socketfd, char *buffer) {
+
+  char *http_method, *route, *first_line, *http_version;
+  first_line = strtok(buffer, "\r\n");
 
   printf("%s\n", first_line);
 
   http_method = strtok(first_line, " ");
   route = strtok(NULL, " ");
+  http_version = strtok(NULL, " ");
 
-  process_routes(socketfd, http_method, route);
-}
-
-void handle_http_request(int socketfd) {
-  char buffer[BUFFER_SIZE];
-  int received_bytes;
-  received_bytes = recv(socketfd, buffer, BUFFER_SIZE - 1, 0);
-
-  if (received_bytes < 1) {
-    printf("error while reading from client");
-    close(socketfd);
+  if (strcmp(http_version, "HTTP/1.1") != 0) {
+    fprintf(stderr, "Only HTTP/1.1 is supported\n");
     return;
   }
 
-  buffer[received_bytes] = '\0';
-
-  process_http(socketfd, buffer);
-  close(socketfd);
+  process_routes(socketfd, http_method, route);
 }

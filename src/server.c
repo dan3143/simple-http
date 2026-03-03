@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #define BACKLOG 10
+#define BUFFER_SIZE 1024
 
 void *get_in_addr(struct sockaddr *sa) {
   if (sa->sa_family == AF_INET) {
@@ -89,7 +90,22 @@ void listen_on_server_sock(int server_sockfd) {
     inet_ntop(client_addr.ss_family,
               get_in_addr((struct sockaddr *)&client_addr), s, sizeof s);
     printf("\nServer: got connection from %s\n", s);
-    handle_http_request(client_sockfd);
+
+    char buffer[BUFFER_SIZE];
+    int received_bytes;
+    received_bytes = recv(client_sockfd, buffer, BUFFER_SIZE - 1, 0);
+
+    if (received_bytes < 1) {
+      printf("error while reading from client");
+      close(client_sockfd);
+      return;
+    }
+
+    buffer[received_bytes] = '\0';
+
+    handle_http_request(client_sockfd, buffer);
+
+    close(client_sockfd);
   }
 }
 
