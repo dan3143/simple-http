@@ -88,7 +88,7 @@ void listen_on_server_sock(int server_sockfd) {
 
     inet_ntop(client_addr.ss_family,
               get_in_addr((struct sockaddr *)&client_addr), s, sizeof s);
-    printf("server: got connection from %s\n", s);
+    printf("\nServer: got connection from %s\n", s);
     handle_http_request(client_sockfd);
   }
 }

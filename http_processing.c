@@ -40,7 +40,7 @@ void serveHTML(int socketfd, char *filename) {
 
   char *http_header = "HTTP/1.1 200 OK\nContent-Type: text/html\n\n";
   send(socketfd, http_header, strlen(http_header), 0);
-
+  printf("Serving %s\n", filename);
   size_t read = 0;
   while ((read = fread(buffer, sizeof(buffer[0]), BUFFER_SIZE, fp)) > 0) {
     send(socketfd, buffer, read, 0);
@@ -80,6 +80,7 @@ void process_http(int socketfd, char *buffer) {
   char *http_method, *route, *first_line;
 
   first_line = strtok(buffer, "\n");
+  printf("%s\n", first_line);
   http_method = strtok(first_line, " ");
   route = strtok(NULL, " ");
   // http_version = strtok(NULL, " ");
