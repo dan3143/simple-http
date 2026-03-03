@@ -1,10 +1,11 @@
 CC = gcc
 CFLAGS = -Wall -g
 TARGET_NAME = simple-http
-BUILD_DIR ?= ./build
+SRC_DIR ?= src
+BUILD_DIR ?= build
 
-SRCS = $(wildcard *.c)
-OBJS = $(addprefix $(BUILD_DIR)/, $(SRCS:.c=.o))
+SRCS = $(wildcard $(SRC_DIR)/*.c)
+OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
 TARGET = $(BUILD_DIR)/$(TARGET_NAME)
 
 all: $(BUILD_DIR) $(TARGET)
@@ -15,7 +16,7 @@ $(BUILD_DIR):
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS)
 
-$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:

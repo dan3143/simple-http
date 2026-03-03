@@ -1,13 +1,17 @@
 #include "http_processing.h"
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sendfile.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #define HTML_404 "404.html"
-#define STATIC_FOLDER "./static"
+#define ROOT_DIR "./static"
 #define BUFFER_SIZE 1024
 #define METHOD_IDX 0
 #define ROUTE_IDX 1
@@ -17,6 +21,8 @@ char *ROUTES[][3] = {
     {"GET", "/", "index.html"},
     {"GET", "/about", "about.html"},
 };
+
+char *ALLOWED_EXTENSIONS[] = {"css", "js", "jpg", "ico", "png", "gif", "ttf"};
 
 bool file_exists(char *filename) {
   FILE *fp = fopen(filename, "r");
@@ -29,24 +35,31 @@ bool file_exists(char *filename) {
 }
 
 void serveHTML(int socketfd, char *filename) {
-  FILE *fp = fopen(filename, "r");
+  int filefd = open(filename, O_RDONLY);
+  struct stat stat_bf;
+  off_t offset = 0;
 
-  if (fp == NULL) {
+  if (filefd == -1) {
     fprintf(stderr, "Could not open the file %s\n", filename);
     return;
   }
 
-  char buffer[BUFFER_SIZE] = {0};
-
   char *http_header = "HTTP/1.1 200 OK\nContent-Type: text/html\n\n";
   send(socketfd, http_header, strlen(http_header), 0);
   printf("Serving %s\n", filename);
-  size_t read = 0;
-  while ((read = fread(buffer, sizeof(buffer[0]), BUFFER_SIZE, fp)) > 0) {
-    send(socketfd, buffer, read, 0);
+
+  if (fstat(filefd, &stat_bf) < 0) {
+    perror("Error getting file stats");
+    close(filefd);
+    return;
   }
 
-  fclose(fp);
+  ssize_t bytes_sent = sendfile(socketfd, filefd, &offset, stat_bf.st_size);
+  if (bytes_sent < 0) {
+    perror("sendfile error");
+  }
+
+  close(filefd);
 }
 
 int find_matching_route(char *method, char *route) {
@@ -68,22 +81,23 @@ void process_routes(int socketfd, char *method, char *route) {
     filename = ROUTES[matching_route][FILENAME_IDX];
   }
 
-  size_t max_size = strlen(STATIC_FOLDER) + 2 + strlen(filename);
+  size_t max_size = strlen(ROOT_DIR) + 2 + strlen(filename);
   char fullpath[max_size];
 
-  snprintf(fullpath, sizeof(fullpath), "%s/%s", STATIC_FOLDER, filename);
+  snprintf(fullpath, sizeof(fullpath), "%s/%s", ROOT_DIR, filename);
 
   serveHTML(socketfd, fullpath);
 }
 
 void process_http(int socketfd, char *buffer) {
   char *http_method, *route, *first_line;
-
   first_line = strtok(buffer, "\n");
+
   printf("%s\n", first_line);
+
   http_method = strtok(first_line, " ");
   route = strtok(NULL, " ");
-  // http_version = strtok(NULL, " ");
+
   process_routes(socketfd, http_method, route);
 }
 
@@ -97,7 +111,9 @@ void handle_http_request(int socketfd) {
     close(socketfd);
     return;
   }
+
   buffer[received_bytes] = '\0';
+
   process_http(socketfd, buffer);
   close(socketfd);
 }
