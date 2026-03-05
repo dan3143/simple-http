@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 HttpCode parse_first_line(char *buffer, size_t nbytes, HttpRequest *req,
                           char **line_end) {
@@ -59,10 +60,10 @@ HttpCode parse_headers(char *buffer, size_t nbytes, HttpRequest *req,
   size_t processed = 0, combined_header_value_length = 0;
   HttpHeader *h;
 
-  while (*line_start != '\r' && *(line_start + 1) != '\n') {
+  while (!(line_start[0] == '\r' && line_start[1] == '\n')) {
     line_end = memchr(line_start, '\n', nbytes - processed);
     line_len = line_end - line_start;
-    processed += line_len;
+    processed += line_len + 1;
     colon = memchr(line_start, ':', line_len);
     if (colon == NULL) {
       return HTTP_BAD_REQUEST;
@@ -92,10 +93,17 @@ HttpCode parse_headers(char *buffer, size_t nbytes, HttpRequest *req,
     strncpy(header_value, colon, value_len);
     header_value[value_len] = '\0';
 
-    if ((h = get_header(&req->header_list, header_name))) {
-      strncpy(original_header_value, h->value, strlen(h->value));
+    if ((h = get_header(&req->header_list, header_name)) &&
+        strcmp(h->name, "set-cookie") != 0 &&
+        strcmp(h->name, "www-authenticate") != 0) {
+
+      size_t original_header_len = strlen(h->value);
+
+      strncpy(original_header_value, h->value, original_header_len);
+      original_header_value[original_header_len] = '\0';
+
       combined_header_value_length =
-          strlen(original_header_value) + strlen(", ") + strlen(header_value);
+          strlen(original_header_value) + 2 + strlen(header_value);
 
       if (combined_header_value_length < MAX_HEADER_VALUE - 1) {
         snprintf(h->value, MAX_HEADER_VALUE, "%s, %s", original_header_value,
