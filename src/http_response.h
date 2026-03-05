@@ -10,8 +10,7 @@
 typedef struct {
   int status_code;
   char status_text[MAX_STATUS_TEXT];
-  HttpHeader headers[MAX_HEADERS];
-  size_t header_count;
+  HttpHeaderList header_list;
 } HttpResponse;
 
 typedef enum {
@@ -36,6 +35,5 @@ typedef struct {
   };
 
 } HttpBody;
-bool add_header(HttpResponse *, const char *, const char *);
 
 #endif

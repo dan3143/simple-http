@@ -10,24 +10,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-bool add_header(HttpResponse *res, const char *name, const char *value) {
-  size_t count = res->header_count;
-  if (count >= MAX_HEADERS)
-    return false;
-  strncpy(res->headers[count].name, name, MAX_HEADER_NAME);
-  strncpy(res->headers[count].value, value, MAX_HEADER_VALUE);
-  res->header_count++;
-  return true;
-}
-
-bool has_header(HttpResponse *res, const char *name) {
-  for (size_t i = 0; i < res->header_count; i++) {
-    if (strcmp(res->headers[i].name, name) == 0)
-      return true;
-  }
-  return false;
-}
-
 int body_get_length(HttpBody *body) {
   if (body->type == BODY_BUFFER)
     return body->buffer.length;
@@ -41,17 +23,18 @@ void send_http_response(int socketfd, HttpResponse *res, HttpBody *body) {
   sb_init(sb);
   sb_appendf(sb, "HTTP/1.1 %d %s\r\n", res->status_code, res->status_text);
 
-  for (size_t i = 0; i < res->header_count; i++) {
-    sb_appendf(sb, "%s: %s\r\n", res->headers[i].name, res->headers[i].value);
+  for (size_t i = 0; i < res->header_list.header_count; i++) {
+    sb_appendf(sb, "%s: %s\r\n", res->header_list.headers[i].name,
+               res->header_list.headers[i].value);
   }
 
-  if (!has_header(res, "Content-Length")) {
+  if (!has_header(res->header_list, "Content-Length")) {
     size_t content_length = body_get_length(body);
     sb_appendf(sb, "Content-Length: %d\r\n", content_length);
   }
 
   // No keep-alive for now
-  if (!has_header(res, "Connection")) {
+  if (!has_header(res->header_list, "Connection")) {
     sb_append(sb, "Connection: Close");
   }
 

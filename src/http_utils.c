@@ -54,3 +54,21 @@ bool normalize_path(const char *path, const char *root_path, char *output) {
 
   return strncmp(output, temp, strlen(canonical_root)) != 0;
 }
+
+bool add_header(HttpHeaderList *list, const char *name, const char *value) {
+  size_t count = list->header_count;
+  if (count >= MAX_HEADERS)
+    return false;
+  strncpy(list->headers[count].name, name, MAX_HEADER_NAME);
+  strncpy(list->headers[count].value, value, MAX_HEADER_VALUE);
+  list->header_count++;
+  return true;
+}
+
+bool has_header(HttpHeaderList list, const char *name) {
+  for (size_t i = 0; i < list.header_count; i++) {
+    if (strcasecmp(list.headers[i].name, name) == 0)
+      return true;
+  }
+  return false;
+}

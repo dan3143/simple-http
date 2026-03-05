@@ -12,8 +12,7 @@ typedef struct {
   char method[MAX_METHOD_LEN];
   char path[MAX_PATH_LEN];
   char http_version[MAX_HTTP_VERSION_LEN];
-  HttpHeader headers[MAX_HEADERS];
-  size_t header_count;
+  HttpHeaderList header_list;
 } HttpRequest;
 
 HttpCode parse_request(char *, size_t, HttpRequest *);

@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifndef HTTP_UTILS_H
 #define HTTP_UTILS_H
@@ -11,11 +12,6 @@ typedef struct {
   char *ext;
   char *type;
 } MimeEntry;
-
-typedef struct {
-  char name[MAX_HEADER_NAME];
-  char value[MAX_HEADER_VALUE];
-} HttpHeader;
 
 typedef enum {
   HTTP_OK = 200,
@@ -37,7 +33,19 @@ typedef struct {
   const char *message;
 } HttpStatus;
 
+typedef struct {
+  char name[MAX_HEADER_NAME];
+  char value[MAX_HEADER_VALUE];
+} HttpHeader;
+
+typedef struct {
+  HttpHeader headers[MAX_HEADERS];
+  size_t header_count;
+} HttpHeaderList;
+
 const char *lookup_mime_type(const char *path);
 bool normalize_path(const char *, const char *, char *);
+bool add_header(HttpHeaderList *, const char *, const char *);
+bool has_header(HttpHeaderList, const char *);
 
 #endif
