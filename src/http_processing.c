@@ -2,6 +2,7 @@
 #include "utils.h"
 #include <fcntl.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/sendfile.h>
@@ -161,7 +162,7 @@ void process_custom_routes(int socketfd, char *method, char *route) {
                                filename);
 }
 
-void handle_http_request(int socketfd, char *buffer) {
+void handle_http_request(int socketfd, char *buffer, size_t n_bytes) {
 
   char *http_method, *route, *first_line, *http_version;
   first_line = strtok(buffer, "\r\n");

@@ -103,7 +103,7 @@ void listen_on_server_sock(int server_sockfd) {
 
     buffer[received_bytes] = '\0';
 
-    handle_http_request(client_sockfd, buffer);
+    handle_http_request(client_sockfd, buffer, received_bytes);
 
     close(client_sockfd);
   }
