@@ -4,6 +4,6 @@
 #define UTILS_H
 
 bool file_exists(char *);
-char *get_file_extension(char *);
+char *get_file_extension(const char *);
 
 #endif

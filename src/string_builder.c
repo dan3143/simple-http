@@ -1,6 +1,7 @@
 #include "string_builder.h"
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,7 +26,7 @@ void sb_free(StringBuilder *sb) {
   sb->length = 0;
 }
 
-int sb_grow(StringBuilder *sb, int min_capacity) {
+int sb_grow(StringBuilder *sb, size_t min_capacity) {
   int new_capacity = sb->capacity;
   if (new_capacity < min_capacity) {
     new_capacity *= 2;
@@ -60,7 +61,7 @@ int sb_appendf(StringBuilder *sb, const char *fmt, ...) {
   va_start(args, fmt);
 
   va_list copy;
-  va_copy(copy, args); // orignal args will be modified after vnsprintf
+  va_copy(copy, args); // orignal args will be modified after vsnprintf
 
   int needed_bytes = vsnprintf(NULL, 0, fmt, args);
   va_end(args);

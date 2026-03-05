@@ -15,9 +15,9 @@ bool file_exists(char *filename) {
   return true;
 }
 
-char *get_file_extension(char *filename) {
+char *get_file_extension(const char *filename) {
   char *dot = strrchr(filename, '.');
   if (!dot || dot == filename)
-    return "";
+    return NULL;
   return dot + 1;
 }
