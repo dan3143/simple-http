@@ -71,6 +71,10 @@ HttpCode parse_request(char *buffer, size_t nbytes, HttpRequest *req) {
   if (!first_line_end)
     return HTTP_BAD_REQUEST;
 
+  if (strcmp(req->http_version, "HTTP/1.1") != 0) {
+    return HTTP_VERSION_NOT_SUPPORTED;
+  }
+
   status = parse_headers(first_line_end + 1,
                          (nbytes - (first_line_end + 1 - buffer)), req,
                          &headers_end);
