@@ -28,13 +28,13 @@ void send_http_response(int socketfd, HttpResponse *res, HttpBody *body) {
                res->header_list.headers[i].value);
   }
 
-  if (!has_header(res->header_list, "Content-Length")) {
+  if (!get_header(&res->header_list, "Content-Length")) {
     size_t content_length = body_get_length(body);
     sb_appendf(sb, "Content-Length: %d\r\n", content_length);
   }
 
   // No keep-alive for now
-  if (!has_header(res->header_list, "Connection")) {
+  if (!get_header(&res->header_list, "Connection")) {
     sb_append(sb, "Connection: Close");
   }
 

@@ -46,6 +46,6 @@ typedef struct {
 const char *lookup_mime_type(const char *path);
 bool normalize_path(const char *, const char *, char *);
 bool add_header(HttpHeaderList *, const char *, const char *);
-bool has_header(HttpHeaderList, const char *);
+HttpHeader *get_header(HttpHeaderList *, const char *);
 
 #endif

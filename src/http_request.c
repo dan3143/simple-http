@@ -49,35 +49,95 @@ HttpCode parse_first_line(char *buffer, size_t nbytes, HttpRequest *req,
   return HTTP_OK;
 }
 
-// TODO
 HttpCode parse_headers(char *buffer, size_t nbytes, HttpRequest *req,
                        char **end) {
-  printf("%s", buffer);
-  printf("Len: %zu\n", nbytes);
+  char *line_start = buffer;
+  char *colon, *line_end;
+  char header_name[MAX_HEADER_NAME], header_value[MAX_HEADER_VALUE],
+      original_header_value[MAX_HEADER_VALUE];
+  size_t line_len = 0, header_len = 0, value_len = 0;
+  size_t processed = 0, combined_header_value_length = 0;
+  HttpHeader *h;
+
+  while (*line_start != '\r' && *(line_start + 1) != '\n') {
+    line_end = memchr(line_start, '\n', nbytes - processed);
+    line_len = line_end - line_start;
+    processed += line_len;
+    colon = memchr(line_start, ':', line_len);
+    if (colon == NULL) {
+      return HTTP_BAD_REQUEST;
+    }
+    header_len = colon - line_start;
+    if (header_len > MAX_HEADER_NAME - 1) {
+      return HTTP_BAD_REQUEST;
+    }
+
+    strncpy(header_name, line_start, header_len);
+    header_name[header_len] = '\0';
+
+    // Skip colon and spaces
+    colon++;
+    while (*colon == ' ')
+      colon++;
+
+    value_len = line_end - colon;
+    // Account for CR before LF
+    if (*(line_end - 1) == '\r')
+      value_len--;
+
+    if (value_len > MAX_HEADER_VALUE - 1) {
+      return HTTP_BAD_REQUEST;
+    }
+
+    strncpy(header_value, colon, value_len);
+    header_value[value_len] = '\0';
+
+    if ((h = get_header(&req->header_list, header_name))) {
+      strncpy(original_header_value, h->value, strlen(h->value));
+      combined_header_value_length =
+          strlen(original_header_value) + strlen(", ") + strlen(header_value);
+
+      if (combined_header_value_length < MAX_HEADER_VALUE - 1) {
+        snprintf(h->value, MAX_HEADER_VALUE, "%s, %s", original_header_value,
+                 header_value);
+      }
+    } else {
+      add_header(&req->header_list, header_name, header_value);
+    }
+
+    line_start = line_end + 1;
+  }
+
+  *(end) = line_start;
+
   return HTTP_OK;
 }
 
 HttpCode parse_request(char *buffer, size_t nbytes, HttpRequest *req) {
-  char *first_line_end, *headers_end;
-  int first_line_len = 0;
-  HttpCode status;
+  char *headers_start_ptr, *body_start_ptr;
 
-  status = parse_first_line(buffer, nbytes, req, &first_line_end);
+  HttpCode status = HTTP_OK;
+
+  status = parse_first_line(buffer, nbytes, req, &headers_start_ptr);
+  headers_start_ptr++;
 
   if (status != HTTP_OK) {
     return status;
   }
 
-  if (!first_line_end)
+  if (!headers_start_ptr)
     return HTTP_BAD_REQUEST;
 
   if (strcmp(req->http_version, "HTTP/1.1") != 0) {
     return HTTP_VERSION_NOT_SUPPORTED;
   }
 
-  status = parse_headers(first_line_end + 1,
-                         (nbytes - (first_line_end + 1 - buffer)), req,
-                         &headers_end);
+  status =
+      parse_headers(headers_start_ptr, (nbytes - (headers_start_ptr - buffer)),
+                    req, &body_start_ptr);
 
-  return HTTP_OK;
+  if (status != HTTP_OK)
+    return status;
+
+  return status;
 }

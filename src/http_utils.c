@@ -65,10 +65,10 @@ bool add_header(HttpHeaderList *list, const char *name, const char *value) {
   return true;
 }
 
-bool has_header(HttpHeaderList list, const char *name) {
-  for (size_t i = 0; i < list.header_count; i++) {
-    if (strcasecmp(list.headers[i].name, name) == 0)
-      return true;
+HttpHeader *get_header(HttpHeaderList *list, const char *name) {
+  for (size_t i = 0; i < list->header_count; i++) {
+    if (strcasecmp(list->headers[i].name, name) == 0)
+      return &list->headers[i];
   }
-  return false;
+  return NULL;
 }
