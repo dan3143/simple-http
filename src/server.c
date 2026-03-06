@@ -88,32 +88,37 @@ void listen_on_server_sock(int server_sockfd) {
 
     inet_ntop(client_addr.ss_family,
               get_in_addr((struct sockaddr *)&client_addr), s, sizeof s);
-    log_info("Accepting connection from %s", s);
+
+    log_info("Connection from %s accepted", s);
 
     char *buffer = malloc(BUFFER_SIZE);
 
     if (!buffer) {
       log_error("Failed allocating %d bytes to receive data from %s",
                 BUFFER_SIZE);
-      return;
+      continue;
     }
 
     int received_bytes;
+    log_debug("Receiving data...");
     received_bytes = recv(client_sockfd, buffer, BUFFER_SIZE - 1, 0);
+    log_debug("Received %d bytes from %s", received_bytes, s);
 
     if (received_bytes < 1) {
       log_error("Could not receive data from %s", s);
       close(client_sockfd);
-      return;
+      free(buffer);
+      continue;
     }
 
     buffer[received_bytes] = '\0';
 
     log_debug("Handling data from %s as an HTTP request", s);
-    handle_http_request(client_sockfd, buffer, received_bytes);
+    handle_http_request(client_sockfd, buffer, received_bytes, s);
 
     free(buffer);
     close(client_sockfd);
+    log_debug("Connection closed.");
   }
 }
 

@@ -1,5 +1,8 @@
-#include "http_utils.h"
+#include "http.h"
+#include "log.h"
 #include "utils.h"
+#include <asm-generic/errno-base.h>
+#include <errno.h>
 #include <linux/limits.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -19,6 +22,8 @@ const MimeEntry mime_table[] = {{"html", "text/html; charset=utf-8"},
                                 {"svg", "image/svg+xml"},
                                 {"txt", "text/plain; charset=utf-8"}};
 
+void init_http_body(HttpBody *body) { body->type = BODY_NONE; }
+
 const char *lookup_mime_type(const char *path) {
   const char *ext = get_file_extension(path);
   if (!ext)
@@ -34,25 +39,45 @@ const char *lookup_mime_type(const char *path) {
   return "application/octect-stream";
 }
 
-bool normalize_path(const char *path, const char *root_path, char *output) {
+HttpCode normalize_path(const char *path, const char *root_path, char *output) {
+  log_debug("Normalizing %s", path);
+
   char canonical_root[PATH_MAX];
   char temp[PATH_MAX];
+  char actual_path[PATH_MAX];
+
+  if (*path == '/') // Remove leading slash
+    path++;
+
+  size_t path_len = strlen(path);
+
+  strncpy(actual_path, path, strlen(path));
+  actual_path[path_len] = '\0';
 
   if (!realpath(root_path, canonical_root)) {
-    perror("realpath root");
+    log_fatal("Issue with root dir: %s", strerror(errno));
     exit(1);
   }
 
   if (strlen(path) == 0) {
-    strcpy(canonical_root, "index.html");
+    strncpy(actual_path, "index.html", 10);
+    actual_path[10] = '\0';
   }
 
-  snprintf(temp, sizeof(temp), "%s/%s", canonical_root, path);
+  snprintf(temp, sizeof(temp), "%s/%s", canonical_root, actual_path);
 
-  if (!realpath(temp, output))
-    return false;
+  if (!realpath(temp, output)) {
+    if (errno == ENOENT) {
+      log_error("File does not exist: %s", temp);
+      return HTTP_NOT_FOUND;
+    }
+    log_error("Could not obtain realpath: %s", strerror(errno));
+    return HTTP_BAD_REQUEST;
+  }
 
-  return strncmp(output, temp, strlen(canonical_root)) != 0;
+  if (strncmp(output, temp, strlen(canonical_root)) == 0)
+    return HTTP_OK;
+  return HTTP_BAD_REQUEST;
 }
 
 bool add_header(HttpHeaderList *list, const char *name, const char *value) {
@@ -72,6 +97,8 @@ HttpHeader *get_header(HttpHeaderList *list, const char *name) {
   }
   return NULL;
 }
+
+bool is_http_error(HttpCode code) { return code >= 400 && code < 600; }
 
 const char *http_code_to_text(HttpCode code) {
   switch (code) {

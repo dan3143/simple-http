@@ -1,17 +1,11 @@
 #include "log.h"
 #include "server.h"
+#include "utils.h"
 #include <arpa/inet.h>
 #include <bits/getopt_core.h>
 #include <linux/limits.h>
 #include <netinet/in.h>
 #include <string.h>
-
-typedef struct {
-  char host[INET6_ADDRSTRLEN];
-  char port[5];
-  char root_dir[PATH_MAX];
-  int log_level;
-} ServerConfig;
 
 ServerConfig config = {.host = "0.0.0.0",
                        .port = "8080",

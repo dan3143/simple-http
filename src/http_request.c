@@ -6,6 +6,8 @@
 #include <string.h>
 #include <strings.h>
 
+void init_http_request(HttpRequest *req) { req->header_list.header_count = 0; }
+
 HttpCode parse_first_line(char *buffer, size_t nbytes, HttpRequest *req,
                           char **line_end) {
   char *line_start = buffer;

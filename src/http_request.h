@@ -16,5 +16,6 @@ typedef struct {
 } HttpRequest;
 
 HttpCode parse_request(char *, size_t, HttpRequest *, HttpBody *);
+void init_http_request(HttpRequest *);
 
 #endif

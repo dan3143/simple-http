@@ -2,6 +2,9 @@
 #include "log.h"
 #include "string_builder.h"
 #include "utils.h"
+#include <asm-generic/errno-base.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -9,6 +12,7 @@
 #include <string.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -20,7 +24,7 @@ int body_get_length(HttpBody body) {
   return 0;
 }
 
-void res_init(HttpResponse *res, HttpCode code, const char *status) {
+void init_http_response(HttpResponse *res, HttpCode code, const char *status) {
   res->header_list.header_count = 0;
   res->status_code = code;
   res->status_text = status;
@@ -44,7 +48,7 @@ void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
   }
 
   if (!get_header(&res.header_list, "Connection")) {
-    sb_append(&sb, "Connection: Close\r\n");
+    sb_append(&sb, "Connection: close\r\n");
   }
 
   sb_append(&sb, "\r\n");
@@ -72,10 +76,43 @@ void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
   log_debug("Successfully sent HTTP response");
 }
 
-int send_error_response(int socketfd, HttpCode code) {
+void send_file_http(int socketfd, char *path) {
+  int filefd = open(path, O_RDONLY);
+  struct stat stat_buf;
 
-  if (!(code >= 400 && code < 600))
-    return -1;
+  if (filefd == -1) {
+    log_error("Error opening file %s: %s", path, strerror(errno));
+    if (errno == ENOENT) {
+      send_error_response(socketfd, HTTP_NOT_FOUND);
+      return;
+    }
+    send_error_response(socketfd, HTTP_INTERNAL_SERVER_ERROR);
+    return;
+  }
+
+  if (fstat(filefd, &stat_buf) < 0) {
+    log_error("Error getting file stats for %s: %s", path, strerror(errno));
+    send_error_response(socketfd, HTTP_INTERNAL_SERVER_ERROR);
+    close(filefd);
+    return;
+  }
+
+  HttpBody body;
+  HttpResponse res;
+  init_http_body(&body);
+  init_http_response(&res, HTTP_OK, "OK");
+  body.type = BODY_FILE;
+  body.file.fd = filefd;
+  body.file.length = stat_buf.st_size;
+  send_http_response(socketfd, res, body);
+}
+
+void send_error_response(int socketfd, HttpCode code) {
+
+  if (!(is_http_error(code))) {
+    log_error("Trying to send an error message with a non-error HTTP code");
+    return;
+  }
 
   char body_data[4096];
   HttpResponse res;
@@ -89,9 +126,10 @@ int send_error_response(int socketfd, HttpCode code) {
            code, status_text, status_desc);
   body.buffer.data = body_data;
   body.buffer.length = strlen(body_data);
-  res_init(&res, code, status_text);
+
+  init_http_response(&res, code, status_text);
 
   send_http_response(socketfd, res, body);
 
-  return 0;
+  return;
 }

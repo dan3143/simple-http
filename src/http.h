@@ -1,8 +1,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#ifndef HTTP_UTILS_H
-#define HTTP_UTILS_H
+#ifndef HTTP_H
+#define HTTP_H
 
 #define MAX_HEADER_NAME 64
 #define MAX_HEADER_VALUE 256
@@ -43,12 +43,37 @@ typedef struct {
   size_t header_count;
 } HttpHeaderList;
 
+typedef enum {
+  BODY_BUFFER,
+  BODY_FILE,
+  BODY_NONE,
+} HttpBodyType;
+
+typedef struct {
+  HttpBodyType type;
+
+  union {
+    struct {
+      char *data;
+      size_t length;
+    } buffer;
+
+    struct {
+      int fd;
+      size_t length;
+    } file;
+  };
+
+} HttpBody;
+
 const char *lookup_mime_type(const char *path);
 const char *http_code_to_text(HttpCode);
 const char *http_code_to_description(HttpCode);
-bool normalize_path(const char *, const char *, char *);
+HttpCode normalize_path(const char *, const char *, char *);
 bool add_header(HttpHeaderList *, const char *, const char *);
 HttpHeader *get_header(HttpHeaderList *, const char *);
+void init_http_body(HttpBody *);
+bool is_http_error(HttpCode);
 
 static const char *ERROR_PAGE_TEMPLATE =
     "<!DOCTYPE html>\n"

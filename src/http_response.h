@@ -1,7 +1,7 @@
 #ifndef HTTP_RESPONSE_H
 #define HTTP_RESPONSE_H
 
-#include "http_utils.h"
+#include "http.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -13,29 +13,7 @@ typedef struct {
   HttpHeaderList header_list;
 } HttpResponse;
 
-typedef enum {
-  BODY_BUFFER,
-  BODY_FILE,
-  BODY_NONE,
-} HttpBodyType;
-
-typedef struct {
-  HttpBodyType type;
-
-  union {
-    struct {
-      char *data;
-      size_t length;
-    } buffer;
-
-    struct {
-      int fd;
-      size_t length;
-    } file;
-  };
-
-} HttpBody;
-
-int send_error_response(int, HttpCode);
+void send_error_response(int, HttpCode);
+void send_file_http(int, char *);
 
 #endif
