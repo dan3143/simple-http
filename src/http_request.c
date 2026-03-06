@@ -53,66 +53,31 @@ HttpCode parse_first_line(char *buffer, size_t nbytes, HttpRequest *req,
 HttpCode parse_headers(char *buffer, size_t nbytes, HttpRequest *req,
                        char **end) {
   char *line_start = buffer;
-  char *colon, *line_end;
-  char header_name[MAX_HEADER_NAME], header_value[MAX_HEADER_VALUE],
-      original_header_value[MAX_HEADER_VALUE];
-  size_t line_len = 0, header_len = 0, value_len = 0;
-  size_t processed = 0, combined_header_value_length = 0;
-  HttpHeader *h;
 
   while (!(line_start[0] == '\r' && line_start[1] == '\n')) {
-    line_end = memchr(line_start, '\n', nbytes - processed);
-    line_len = line_end - line_start;
-    processed += line_len + 1;
-    colon = memchr(line_start, ':', line_len);
+    char *line_end = strchr(line_start, '\n');
+    if (!line_end)
+      return HTTP_BAD_REQUEST;
+
+    *line_end = '\0';
+
+    if (*(line_end - 1) == '\r')
+      *(line_end - 1) = '\0';
+
+    char *colon = strchr(line_start, ':');
+
     if (colon == NULL) {
       return HTTP_BAD_REQUEST;
     }
-    header_len = colon - line_start;
-    if (header_len > MAX_HEADER_NAME - 1) {
-      return HTTP_BAD_REQUEST;
+
+    *colon = '\0';
+    char *name = line_start;
+    char *value = colon + 1;
+
+    while (*value == ' ') {
+      value++;
     }
-
-    strncpy(header_name, line_start, header_len);
-    header_name[header_len] = '\0';
-
-    // Skip colon and spaces
-    colon++;
-    while (*colon == ' ')
-      colon++;
-
-    value_len = line_end - colon;
-    // Account for CR before LF
-    if (*(line_end - 1) == '\r')
-      value_len--;
-
-    if (value_len > MAX_HEADER_VALUE - 1) {
-      return HTTP_BAD_REQUEST;
-    }
-
-    strncpy(header_value, colon, value_len);
-    header_value[value_len] = '\0';
-
-    if ((h = get_header(&req->header_list, header_name)) &&
-        strcmp(h->name, "set-cookie") != 0 &&
-        strcmp(h->name, "www-authenticate") != 0) {
-
-      size_t original_header_len = strlen(h->value);
-
-      strncpy(original_header_value, h->value, original_header_len);
-      original_header_value[original_header_len] = '\0';
-
-      combined_header_value_length =
-          strlen(original_header_value) + 2 + strlen(header_value);
-
-      if (combined_header_value_length < MAX_HEADER_VALUE - 1) {
-        snprintf(h->value, MAX_HEADER_VALUE, "%s, %s", original_header_value,
-                 header_value);
-      }
-    } else {
-      add_header(&req->header_list, header_name, header_value);
-    }
-
+    add_header(&req->header_list, name, value);
     line_start = line_end + 1;
   }
 

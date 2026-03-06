@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 #define BACKLOG 10
-#define BUFFER_SIZE 2048
+#define BUFFER_SIZE 16384
 
 void *get_in_addr(struct sockaddr *sa) {
   if (sa->sa_family == AF_INET) {
@@ -91,7 +91,7 @@ void listen_on_server_sock(int server_sockfd) {
               get_in_addr((struct sockaddr *)&client_addr), s, sizeof s);
     printf("\nServer: got connection from %s\n", s);
 
-    char buffer[BUFFER_SIZE];
+    char *buffer = malloc(BUFFER_SIZE);
     int received_bytes;
     received_bytes = recv(client_sockfd, buffer, BUFFER_SIZE - 1, 0);
 
@@ -105,6 +105,7 @@ void listen_on_server_sock(int server_sockfd) {
 
     handle_http_request(client_sockfd, buffer, received_bytes);
 
+    free(buffer);
     close(client_sockfd);
   }
 }
