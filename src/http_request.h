@@ -15,6 +15,6 @@ typedef struct {
   HttpHeaderList header_list;
 } HttpRequest;
 
-HttpCode parse_request(char *, size_t, HttpRequest *);
+HttpCode parse_request(char *, size_t, HttpRequest *, HttpBody *);
 
 #endif

@@ -67,8 +67,11 @@ HttpCode parse_headers(char *buffer, size_t nbytes, HttpRequest *req,
   return HTTP_OK;
 }
 
-HttpCode parse_request(char *buffer, size_t nbytes, HttpRequest *req) {
+HttpCode parse_request(char *buffer, size_t nbytes, HttpRequest *req,
+                       HttpBody *body) {
   char *headers_start_ptr, *body_start_ptr;
+
+  buffer[nbytes] = '\0';
 
   HttpCode status = HTTP_OK;
 
@@ -92,6 +95,26 @@ HttpCode parse_request(char *buffer, size_t nbytes, HttpRequest *req) {
 
   if (status != HTTP_OK)
     return status;
+
+  if (*body_start_ptr == '\r')
+    body_start_ptr++;
+  if (*body_start_ptr != '\n')
+    return HTTP_BAD_REQUEST;
+
+  *body_start_ptr = '\0';
+  body_start_ptr++;
+
+  size_t body_len = strlen(body_start_ptr);
+
+  if (body_len == 0) {
+    body->type = BODY_NONE;
+  } else {
+    body->type = BODY_BUFFER;
+    body->buffer.data = body_start_ptr;
+    body->buffer.length = body_len;
+  }
+
+  printf("The length of the body is: %zu\n", body_len);
 
   return status;
 }
