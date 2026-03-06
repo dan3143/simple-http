@@ -9,7 +9,7 @@
 
 typedef struct {
   int status_code;
-  char status_text[MAX_STATUS_TEXT];
+  const char *status_text;
   HttpHeaderList header_list;
 } HttpResponse;
 
@@ -35,5 +35,7 @@ typedef struct {
   };
 
 } HttpBody;
+
+int send_error_response(int, HttpCode);
 
 #endif

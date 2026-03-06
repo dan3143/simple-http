@@ -8,6 +8,8 @@ SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
 TARGET = $(BUILD_DIR)/$(TARGET_NAME)
 
+$(BUILD_DIR)/log.o: CFLAGS += -DLOG_USE_COLOR
+
 all: $(BUILD_DIR) $(TARGET)
 
 $(BUILD_DIR):

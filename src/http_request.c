@@ -1,5 +1,6 @@
 #include "http_request.h"
 #include "http_response.h"
+#include "log.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,15 +15,19 @@ HttpCode parse_first_line(char *buffer, size_t nbytes, HttpRequest *req,
     *(*line_end - 1) = '\0';
   }
   char *first_space = strchr(buffer, ' ');
-  if (!first_space)
+  if (!first_space) {
+    log_error("Badly formatted HTTP status line. Bad request");
     return HTTP_BAD_REQUEST;
+  }
 
   *first_space = '\0';
   req->method = line_start;
 
   char *second_space = strchr(first_space + 1, ' ');
-  if (!second_space)
+  if (!second_space) {
+    log_error("Badly formatted HTTP status line. Bad request");
     return HTTP_BAD_REQUEST;
+  }
 
   *second_space = '\0';
   req->path = first_space + 1;
@@ -35,10 +40,14 @@ HttpCode parse_headers(char *buffer, size_t nbytes, HttpRequest *req,
                        char **end) {
   char *line_start = buffer;
 
+  req->header_list.header_count = 0;
+
   while (!(line_start[0] == '\r' && line_start[1] == '\n')) {
     char *line_end = strchr(line_start, '\n');
-    if (!line_end)
+    if (!line_end) {
+      log_error("Badly formatted headers. Bad request");
       return HTTP_BAD_REQUEST;
+    }
 
     *line_end = '\0';
 
@@ -48,6 +57,7 @@ HttpCode parse_headers(char *buffer, size_t nbytes, HttpRequest *req,
     char *colon = strchr(line_start, ':');
 
     if (colon == NULL) {
+      log_error("Header with no colon. Bad request");
       return HTTP_BAD_REQUEST;
     }
 
@@ -69,6 +79,7 @@ HttpCode parse_headers(char *buffer, size_t nbytes, HttpRequest *req,
 
 HttpCode parse_request(char *buffer, size_t nbytes, HttpRequest *req,
                        HttpBody *body) {
+  log_debug("Parsing request");
   char *headers_start_ptr, *body_start_ptr;
 
   buffer[nbytes] = '\0';
@@ -82,10 +93,13 @@ HttpCode parse_request(char *buffer, size_t nbytes, HttpRequest *req,
     return status;
   }
 
-  if (!headers_start_ptr)
+  if (!headers_start_ptr) {
+    log_error("Pointer to headers section's start is NULL. Bad request");
     return HTTP_BAD_REQUEST;
+  }
 
   if (strcmp(req->http_version, "HTTP/1.1") != 0) {
+    log_error("HTTP Version not supported");
     return HTTP_VERSION_NOT_SUPPORTED;
   }
 
@@ -98,8 +112,10 @@ HttpCode parse_request(char *buffer, size_t nbytes, HttpRequest *req,
 
   if (*body_start_ptr == '\r')
     body_start_ptr++;
-  if (*body_start_ptr != '\n')
+  if (*body_start_ptr != '\n') {
+    log_error("No LF at the end of headers section. Bad request");
     return HTTP_BAD_REQUEST;
+  }
 
   *body_start_ptr = '\0';
   body_start_ptr++;
@@ -113,8 +129,6 @@ HttpCode parse_request(char *buffer, size_t nbytes, HttpRequest *req,
     body->buffer.data = body_start_ptr;
     body->buffer.length = body_len;
   }
-
-  printf("The length of the body is: %zu\n", body_len);
 
   return status;
 }

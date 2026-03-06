@@ -44,8 +44,33 @@ typedef struct {
 } HttpHeaderList;
 
 const char *lookup_mime_type(const char *path);
+const char *http_code_to_text(HttpCode);
+const char *http_code_to_description(HttpCode);
 bool normalize_path(const char *, const char *, char *);
 bool add_header(HttpHeaderList *, const char *, const char *);
 HttpHeader *get_header(HttpHeaderList *, const char *);
+
+static const char *ERROR_PAGE_TEMPLATE =
+    "<!DOCTYPE html>\n"
+    "<html>\n"
+    "<head>\n"
+    "  <meta charset=\"utf-8\">\n"
+    "  <title>%d %s</title>\n"
+    "  <style>\n"
+    "    body { font-family: sans-serif; background:#f5f5f5; }\n"
+    "    .box { max-width:600px; margin:80px auto; padding:30px; "
+    "background:white; border-radius:8px; }\n"
+    "    h1 { margin-top:0; }\n"
+    "  </style>\n"
+    "</head>\n"
+    "<body>\n"
+    "  <div class=\"box\">\n"
+    "    <h1>%d %s</h1>\n"
+    "    <p>%s</p>\n"
+    "    <hr>\n"
+    "    <small>SimpleHTTP</small>\n"
+    "  </div>\n"
+    "</body>\n"
+    "</html>\n";
 
 #endif
