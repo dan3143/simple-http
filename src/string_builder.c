@@ -9,11 +9,11 @@
 #define SB_INITIAL_CAPACITY 64
 
 int sb_init(StringBuilder *sb) {
+  sb->capacity = SB_INITIAL_CAPACITY;
   sb->data = malloc(sb->capacity);
   if (sb->data == NULL) {
     return -1;
   }
-  sb->capacity = SB_INITIAL_CAPACITY;
   sb->length = 0;
   sb->data[0] = '\0';
   return 0;
@@ -57,6 +57,7 @@ int sb_append(StringBuilder *sb, const char *str) {
 }
 
 int sb_appendf(StringBuilder *sb, const char *fmt, ...) {
+
   va_list args;
   va_start(args, fmt);
 

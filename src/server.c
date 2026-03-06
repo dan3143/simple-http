@@ -5,7 +5,6 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -57,7 +56,7 @@ int init_server_sock(char *ipstr, char *port) {
   freeaddrinfo(server_info);
 
   if (p == NULL) {
-    log_error("Server: could not listen in specified host\n");
+    log_fatal("Could not listen in specified host\n");
     exit(1);
   }
 
