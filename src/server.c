@@ -1,6 +1,7 @@
 #include "server.h"
 #include "http_processing.h"
 #include "log.h"
+#include "utils.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
@@ -13,13 +14,6 @@
 
 #define BACKLOG 10
 #define BUFFER_SIZE 16384
-
-void *get_in_addr(struct sockaddr *sa) {
-  if (sa->sa_family == AF_INET) {
-    return &(((struct sockaddr_in *)sa)->sin_addr);
-  }
-  return &(((struct sockaddr_in6 *)sa)->sin6_addr);
-}
 
 int init_server_sock(char *ipstr, char *port) {
   int server_sockfd, status;
@@ -74,28 +68,32 @@ void listen_on_server_sock(int server_sockfd) {
   socklen_t sin_size;
   int client_sockfd;
   char s[INET6_ADDRSTRLEN];
+  int port;
 
   while (1) {
 
     sin_size = sizeof client_addr;
     client_sockfd =
-        accept(server_sockfd, (struct sockaddr *)&client_addr, &sin_size);
+        accept(server_sockfd, ((struct sockaddr *)&client_addr), &sin_size);
 
     if (client_sockfd == -1) {
       log_error("Could not accept incoming connection: %s", strerror(errno));
       continue;
     }
 
-    inet_ntop(client_addr.ss_family,
-              get_in_addr((struct sockaddr *)&client_addr), s, sizeof s);
+    // inet_ntop(client_addr.ss_family,
+    //           get_in_addr((struct sockaddr *)&client_addr), s, sizeof s);
 
-    log_info("Connection from %s accepted", s);
+    get_addr_str((struct sockaddr *)&client_addr, s);
+    port = get_port((struct sockaddr *)&client_addr);
+
+    log_info("Connection from %s:%d accepted", s, port);
 
     char *buffer = malloc(BUFFER_SIZE);
 
     if (!buffer) {
       log_error("Failed allocating %d bytes to receive data from %s",
-                BUFFER_SIZE);
+                BUFFER_SIZE, s);
       continue;
     }
 
@@ -114,7 +112,7 @@ void listen_on_server_sock(int server_sockfd) {
     buffer[received_bytes] = '\0';
 
     log_debug("Handling data from %s as an HTTP request", s);
-    handle_http_request(client_sockfd, buffer, received_bytes, s);
+    handle_http_request(client_sockfd, buffer, received_bytes);
 
     free(buffer);
     close(client_sockfd);

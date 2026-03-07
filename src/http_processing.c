@@ -4,11 +4,12 @@
 #include "log.h"
 #include "utils.h"
 #include <linux/limits.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 extern ServerConfig config;
 
-void handle_http_request(int socketfd, char *buffer, size_t n_bytes,
-                         char *ip_addr) {
+void handle_http_request(int socketfd, char *buffer, size_t n_bytes) {
   HttpRequest req;
   HttpBody body;
   char normalized_path[PATH_MAX];
