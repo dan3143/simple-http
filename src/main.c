@@ -7,10 +7,8 @@
 #include <netinet/in.h>
 #include <string.h>
 
-ServerConfig config = {.host = "0.0.0.0",
-                       .port = "8080",
-                       .root_dir = "./static",
-                       .log_level = LOG_INFO};
+ServerConfig config = {
+    .host = "0.0.0.0", .port = "8080", .root_dir = "./", .log_level = LOG_INFO};
 
 void processArgs(int argc, char **argv) {
   char c;

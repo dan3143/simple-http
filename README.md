@@ -1,15 +1,25 @@
 # Test HTTP server
 
-Barebones HTTP server I made while learning programming with C.
+A toy HTTP server I made while learning programming with C. It only supports HTTP/1.1 since I don't wanna deal with implementing HTTP/2 framing, multiplexing, flow control, etc.
 
-It will serve files from a "static" folder in the executable's working directory. In the future this should be configurable.
+It will serve static files from the current folder (modifiable by the `-d` option).
 
-The routes are hardcoded into a `ROUTES` array under `http_processing.c`. In the future this should also be configurable.
-
-It can be bound to a specific port in a specific IP address.
+It can be bound to a specific port in a specific IP address using the `-p` and `-h` options respectively.
 
 Usage:
 
 ```
-simple-http [port [ip address]]
+simple-http [options]
 ```
+
+This is just a toy server with a lot of errors and little to no compliance with [RFC 9112](https://www.rfc-editor.org/rfc/rfc9112.html). Please do not use it for anything serious.
+
+## To-do list:
+
+- [ ] Multithreading
+- [ ] Persistent connections
+- [ ] Better HTTP/1.1 compliance
+- [ ] TLS support with [openssl](https://github.com/openssl/openssl)
+- [ ] Read configuration from a file
+
+I don't expect to finish everything laid out in that list, but I will try.
