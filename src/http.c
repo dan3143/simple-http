@@ -40,8 +40,6 @@ const char *lookup_mime_type(const char *path) {
 }
 
 HttpCode normalize_path(const char *path, const char *root_path, char *output) {
-  log_debug("Normalizing %s", path);
-
   char canonical_root[PATH_MAX];
   char temp[PATH_MAX];
   char actual_path[PATH_MAX];
@@ -68,10 +66,10 @@ HttpCode normalize_path(const char *path, const char *root_path, char *output) {
 
   if (!realpath(temp, output)) {
     if (errno == ENOENT) {
-      log_error("File does not exist: %s", temp);
+      log_debug("File does not exist: %s", temp);
       return HTTP_NOT_FOUND;
     }
-    log_error("Could not obtain realpath: %s", strerror(errno));
+    log_debug("Could not obtain realpath: %s", strerror(errno));
     return HTTP_BAD_REQUEST;
   }
 

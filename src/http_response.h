@@ -14,6 +14,6 @@ typedef struct {
 } HttpResponse;
 
 void send_error_response(int, HttpCode);
-void send_file_http(int, char *);
+HttpCode send_file_http(int, char *);
 
 #endif

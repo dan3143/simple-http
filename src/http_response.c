@@ -31,8 +31,6 @@ void init_http_response(HttpResponse *res, HttpCode code, const char *status) {
 }
 
 void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
-  log_info("Response: %d - %s", res.status_code, res.status_text);
-
   StringBuilder sb;
   sb_init(&sb);
   sb_appendf(&sb, "HTTP/1.1 %d %s\r\n", res.status_code, res.status_text);
@@ -53,16 +51,13 @@ void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
 
   sb_append(&sb, "\r\n");
 
-  log_debug("Sending HTTP metadata (status line and headers)");
   send(socketfd, sb.data, sb.length, 0);
 
   sb_free(&sb);
 
   if (body.type == BODY_BUFFER) {
-    log_debug("Sending HTTP body");
     send(socketfd, body.buffer.data, body.buffer.length, 0);
   } else if (body.type == BODY_FILE) {
-    log_debug("Sending file as HTTP body");
     off_t offset = 0;
     size_t remaining = body.file.length;
     while (remaining > 0) {
@@ -76,25 +71,22 @@ void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
   log_debug("Successfully sent HTTP response");
 }
 
-void send_file_http(int socketfd, char *path) {
+HttpCode send_file_http(int socketfd, char *path) {
   int filefd = open(path, O_RDONLY);
   struct stat stat_buf;
 
   if (filefd == -1) {
     log_error("Error opening file %s: %s", path, strerror(errno));
     if (errno == ENOENT) {
-      send_error_response(socketfd, HTTP_NOT_FOUND);
-      return;
+      return HTTP_NOT_FOUND;
     }
-    send_error_response(socketfd, HTTP_INTERNAL_SERVER_ERROR);
-    return;
+    return HTTP_INTERNAL_SERVER_ERROR;
   }
 
   if (fstat(filefd, &stat_buf) < 0) {
     log_error("Error getting file stats for %s: %s", path, strerror(errno));
-    send_error_response(socketfd, HTTP_INTERNAL_SERVER_ERROR);
     close(filefd);
-    return;
+    return HTTP_INTERNAL_SERVER_ERROR;
   }
 
   HttpBody body;
@@ -105,6 +97,7 @@ void send_file_http(int socketfd, char *path) {
   body.file.fd = filefd;
   body.file.length = stat_buf.st_size;
   send_http_response(socketfd, res, body);
+  return HTTP_OK;
 }
 
 void send_error_response(int socketfd, HttpCode code) {

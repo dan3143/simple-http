@@ -81,9 +81,6 @@ void listen_on_server_sock(int server_sockfd) {
       continue;
     }
 
-    // inet_ntop(client_addr.ss_family,
-    //           get_in_addr((struct sockaddr *)&client_addr), s, sizeof s);
-
     get_addr_str((struct sockaddr *)&client_addr, s);
     port = get_port((struct sockaddr *)&client_addr);
 
@@ -112,7 +109,7 @@ void listen_on_server_sock(int server_sockfd) {
     buffer[received_bytes] = '\0';
 
     log_debug("Handling data from %s as an HTTP request", s);
-    handle_http_request(client_sockfd, buffer, received_bytes);
+    handle_http_request(client_sockfd, buffer, received_bytes, s);
 
     free(buffer);
     close(client_sockfd);

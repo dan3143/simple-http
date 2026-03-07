@@ -9,7 +9,8 @@
 
 extern ServerConfig config;
 
-void handle_http_request(int socketfd, char *buffer, size_t n_bytes) {
+void handle_http_request(int socketfd, char *buffer, size_t n_bytes,
+                         char *ipstr) {
   HttpRequest req;
   HttpBody body;
   char normalized_path[PATH_MAX];
@@ -18,22 +19,27 @@ void handle_http_request(int socketfd, char *buffer, size_t n_bytes) {
   init_http_body(&body);
 
   HttpCode status = parse_request(buffer, n_bytes, &req, &body);
+
+  if (is_http_error(status)) {
+    goto end;
+  }
+
+  status = normalize_path(req.path, config.root_dir, normalized_path);
+
+  if (is_http_error(status)) {
+    log_debug("%s is not a valid path", req.path);
+    goto end;
+  }
+
+  status = send_file_http(socketfd, normalized_path);
+  if (is_http_error(status)) {
+    goto end;
+  }
+
+end:
   if (is_http_error(status)) {
     send_error_response(socketfd, status);
-    return;
   }
-
-  // TODO: Handle requests to custom paths
-
-  HttpCode path_status =
-      normalize_path(req.path, config.root_dir, normalized_path);
-
-  if (is_http_error(status)) {
-    log_error("%s is not a valid path", req.path);
-    send_error_response(socketfd, path_status);
-    return;
-  }
-
-  log_debug("Serving file from %s", normalized_path);
-  send_file_http(socketfd, normalized_path);
+  log_info("%s -- \"%s %s %s\" %d", ipstr, req.method, req.path,
+           req.http_version, status);
 }

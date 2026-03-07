@@ -4,6 +4,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-void handle_http_request(int, char *, size_t);
+void handle_http_request(int, char *, size_t, char *);
 
 #endif
