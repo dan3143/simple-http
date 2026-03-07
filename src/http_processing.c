@@ -7,6 +7,13 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#define TRY_HTTP(x)                                                            \
+  do {                                                                         \
+    status = (x);                                                              \
+    if (is_http_error(status))                                                 \
+      goto end;                                                                \
+  } while (0)
+
 extern ServerConfig config;
 
 void handle_http_request(int socketfd, char *buffer, size_t n_bytes,
@@ -18,23 +25,11 @@ void handle_http_request(int socketfd, char *buffer, size_t n_bytes,
   init_http_request(&req);
   init_http_body(&body);
 
-  HttpCode status = parse_request(buffer, n_bytes, &req, &body);
+  HttpCode status = HTTP_OK;
 
-  if (is_http_error(status)) {
-    goto end;
-  }
-
-  status = normalize_path(req.path, config.root_dir, normalized_path);
-
-  if (is_http_error(status)) {
-    log_debug("%s is not a valid path", req.path);
-    goto end;
-  }
-
-  status = send_file_http(socketfd, normalized_path);
-  if (is_http_error(status)) {
-    goto end;
-  }
+  TRY_HTTP(parse_request(buffer, n_bytes, &req, &body));
+  TRY_HTTP(normalize_path(req.path, config.root_dir, normalized_path));
+  TRY_HTTP(send_file_http(socketfd, normalized_path));
 
 end:
   if (is_http_error(status)) {
