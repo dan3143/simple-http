@@ -84,7 +84,7 @@ void listen_on_server_sock(int server_sockfd) {
     get_addr_str((struct sockaddr *)&client_addr, s);
     port = get_port((struct sockaddr *)&client_addr);
 
-    log_info("Connection from %s:%d accepted", s, port);
+    log_debug("Connection from %s:%d accepted", s, port);
 
     char *buffer = malloc(BUFFER_SIZE);
 

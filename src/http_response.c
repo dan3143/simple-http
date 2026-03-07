@@ -51,12 +51,15 @@ void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
 
   sb_append(&sb, "\r\n");
 
-  send(socketfd, sb.data, sb.length, 0);
+  size_t sent_len = sb.length;
+
+  send_all(socketfd, sb.data, &sent_len);
 
   sb_free(&sb);
 
   if (body.type == BODY_BUFFER) {
-    send(socketfd, body.buffer.data, body.buffer.length, 0);
+    sent_len = body.buffer.length;
+    send_all(socketfd, body.buffer.data, &sent_len);
   } else if (body.type == BODY_FILE) {
     off_t offset = 0;
     size_t remaining = body.file.length;

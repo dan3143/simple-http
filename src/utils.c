@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -43,4 +44,20 @@ int get_port(struct sockaddr *sa) {
     struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)sa;
     return ntohs(ipv6->sin6_port);
   }
+}
+
+int send_all(int fd, char *buf, size_t *len) {
+  size_t total = 0;
+  int bytes_left = *len;
+  int n;
+  while (total < *len) {
+    n = send(fd, buf + total, bytes_left, 0);
+    if (n == -1) {
+      break;
+    }
+    total += n;
+    bytes_left -= n;
+  }
+  *len = total;
+  return n == -1 ? -1 : 0;
 }
