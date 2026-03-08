@@ -66,5 +66,8 @@ HttpCode srv_err_to_http_err(ServerError err) {
 
   case SRV_OK:
     return HTTP_OK;
+
+  default:
+    return HTTP_OK;
   }
 }

@@ -3,6 +3,7 @@
 
 typedef enum {
   SRV_OK = 0,
+  SRV_AGAIN,
   SRV_ERR_PARSE,
   SRV_ERR_NOT_FOUND,
   SRV_ERR_BAD_REQUEST,

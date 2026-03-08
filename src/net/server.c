@@ -1,5 +1,6 @@
 #include "net/server.h"
 #include "core/log.h"
+#include "http/parser.h"
 #include "misc/utils.h"
 #include <arpa/inet.h>
 #include <errno.h>
@@ -12,7 +13,7 @@
 #include <unistd.h>
 
 #define BACKLOG 10
-#define BUFFER_SIZE 16384
+#define BUFFER_CAPACITY 16384
 
 int init_server_sock(char *ipstr, char *port) {
   int server_sockfd, status;
@@ -56,26 +57,26 @@ int init_server_sock(char *ipstr, char *port) {
   return server_sockfd;
 }
 
-void listen_on_server_sock(int server_sockfd) {
+void listen_on_server_sock(int server_sock) {
 
-  if (listen(server_sockfd, BACKLOG) == -1) {
+  if (listen(server_sock, BACKLOG) == -1) {
     log_fatal("Could not listen on socket: %s", strerror(errno));
     exit(1);
   }
 
   struct sockaddr_storage client_addr;
   socklen_t sin_size;
-  int client_sockfd;
+  int client_sock;
   char s[INET6_ADDRSTRLEN];
   int port;
 
   while (1) {
 
     sin_size = sizeof client_addr;
-    client_sockfd =
-        accept(server_sockfd, ((struct sockaddr *)&client_addr), &sin_size);
+    client_sock =
+        accept(server_sock, ((struct sockaddr *)&client_addr), &sin_size);
 
-    if (client_sockfd == -1) {
+    if (client_sock == -1) {
       log_error("Could not accept incoming connection: %s", strerror(errno));
       continue;
     }
@@ -85,33 +86,55 @@ void listen_on_server_sock(int server_sockfd) {
 
     log_debug("Connection from %s:%d accepted", s, port);
 
-    char *buffer = malloc(BUFFER_SIZE);
+    char *buffer = malloc(BUFFER_CAPACITY);
+
+    HttpParser parser;
+    init_parser(&parser, buffer, BUFFER_CAPACITY);
 
     if (!buffer) {
       log_error("Failed allocating %d bytes to receive data from %s",
-                BUFFER_SIZE, s);
+                BUFFER_CAPACITY, s);
+      close(client_sock); // TODO: send 500 error instead
       continue;
     }
 
-    int received_bytes;
-    log_debug("Receiving data...");
-    received_bytes = recv(client_sockfd, buffer, BUFFER_SIZE - 1, 0);
-    log_debug("Received %d bytes from %s", received_bytes, s);
+    while (1) {
+      int received_bytes;
+      log_debug("Receiving data...");
+      received_bytes = recv(client_sock, parser.buffer + parser.buffer_len,
+                            BUFFER_CAPACITY - parser.buffer_len, 0);
+      log_debug("Received %d bytes from %s", received_bytes, s);
 
-    if (received_bytes < 1) {
-      log_error("Could not receive data from %s", s);
-      close(client_sockfd);
-      free(buffer);
-      continue;
+      // TODO: handle this
+      if (received_bytes < 0) {
+        log_error("Could not receive data from %s", s);
+        break;
+      }
+
+      if (received_bytes == 0) {
+        if (parser.parsing_state != PARSING_COMPLETE) {
+          log_error("Server: client closed the connection prematurely");
+          break;
+        }
+      }
+
+      // TODO: check if received bytes go out of bounds
+
+      parser.buffer_len += received_bytes;
+      parser.buffer[parser.buffer_len] = '\0';
+
+      parse_http(&parser);
+
+      if (parser.parsing_state == PARSING_ERROR ||
+          parser.parsing_state == PARSING_COMPLETE) {
+        break;
+      }
     }
 
-    buffer[received_bytes] = '\0';
+    log_debug("Parsing complete");
 
-    log_debug("Handling data from %s as an HTTP request", s);
-    // handle_http_request(client_sockfd, buffer, received_bytes, s);
-
+    close(client_sock);
     free(buffer);
-    close(client_sockfd);
     log_debug("Connection closed.");
   }
 }

@@ -51,17 +51,11 @@ typedef enum {
 
 typedef struct {
   HttpBodyType type;
+  size_t length;
 
   union {
-    struct {
-      char *data;
-      size_t length;
-    } buffer;
-
-    struct {
-      int fd;
-      size_t length;
-    } file;
+    char *buffer_data;
+    int fd;
   };
 
 } HttpBody;

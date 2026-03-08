@@ -22,7 +22,10 @@ const MimeEntry mime_table[] = {{"html", "text/html; charset=utf-8"},
                                 {"svg", "image/svg+xml"},
                                 {"txt", "text/plain; charset=utf-8"}};
 
-void init_http_body(HttpBody *body) { body->type = BODY_NONE; }
+void init_http_body(HttpBody *body) {
+  body->type = BODY_NONE;
+  body->length = 0;
+}
 
 const char *lookup_mime_type(const char *path) {
   const char *ext = get_file_extension(path);
