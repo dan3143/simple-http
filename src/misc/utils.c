@@ -61,3 +61,18 @@ int send_all(int fd, char *buf, size_t *len) {
   *len = total;
   return n == -1 ? -1 : 0;
 }
+
+void print_hex_bytes(char *buf, size_t len) {
+  for (size_t i = 0; i < len; i++) {
+
+    printf("%02x  ", (unsigned char)buf[i]);
+
+    if ((i + 1) % 4 == 0) {
+      printf("\n");
+    }
+  }
+
+  if (len % 4 != 0) {
+    printf("\n");
+  }
+}
