@@ -1,8 +1,8 @@
-#include "http_processing.h"
-#include "http_request.h"
-#include "http_response.h"
-#include "log.h"
-#include "utils.h"
+#include "http/http_processing.h"
+#include "core/log.h"
+#include "http/http_request.h"
+#include "http/http_response.h"
+#include "misc/utils.h"
 #include <linux/limits.h>
 #include <sys/socket.h>
 #include <sys/types.h>

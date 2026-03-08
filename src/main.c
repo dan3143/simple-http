@@ -1,6 +1,6 @@
-#include "log.h"
-#include "server.h"
-#include "utils.h"
+#include "core/log.h"
+#include "misc/utils.h"
+#include "net/server.h"
 #include <arpa/inet.h>
 #include <bits/getopt_core.h>
 #include <linux/limits.h>
