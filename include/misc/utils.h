@@ -12,6 +12,7 @@ char *get_file_extension(const char *);
 void get_addr_str(struct sockaddr *, char *);
 int get_port(struct sockaddr *);
 int send_all(int, char *, size_t *);
+void print_hex_bytes(char *, size_t);
 
 typedef struct {
   char host[INET6_ADDRSTRLEN];
