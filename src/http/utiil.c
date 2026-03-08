@@ -1,5 +1,5 @@
-#include "http/http.h"
 #include "core/log.h"
+#include "http/util.h"
 #include "misc/utils.h"
 #include <asm-generic/errno-base.h>
 #include <errno.h>
@@ -97,53 +97,3 @@ HttpHeader *get_header(HttpHeaderList *list, const char *name) {
 }
 
 bool is_http_error(HttpCode code) { return code >= 400 && code < 600; }
-
-const char *http_code_to_text(HttpCode code) {
-  switch (code) {
-  case HTTP_OK:
-    return "OK";
-  case HTTP_BAD_REQUEST:
-    return "Bad Request";
-  case HTTP_VERSION_NOT_SUPPORTED:
-    return "HTTP Version Not Supported";
-  case HTTP_CONTENT_TOO_LARGE:
-    return "Content Too Large";
-  case HTTP_FORBIDDEN:
-    return "Forbidden";
-  case HTTP_FOUND:
-    return "Found";
-  case HTTP_INTERNAL_SERVER_ERROR:
-    return "Internal Server Error";
-  case HTTP_NOT_FOUND:
-    return "Not Found";
-  case HTTP_MOVED_PERMANENTLY:
-    return "Moved Permanently";
-  default:
-    return "";
-  }
-}
-
-const char *http_code_to_description(HttpCode code) {
-  switch (code) {
-  case HTTP_OK:
-    return "Request completed successfully";
-  case HTTP_BAD_REQUEST:
-    return "Malformed syntax, invalid framing, or deceptive request routing.";
-  case HTTP_VERSION_NOT_SUPPORTED:
-    return "Server does not support the HTTP version used in the request.";
-  case HTTP_CONTENT_TOO_LARGE:
-    return "Request body exceeds server or endpoint limits.";
-  case HTTP_FORBIDDEN:
-    return "Server understood the request but refuses to authorize it.";
-  case HTTP_FOUND:
-    return "Temporary redirect.";
-  case HTTP_INTERNAL_SERVER_ERROR:
-    return "Generic catch-all for unhandled server-side exceptions.";
-  case HTTP_NOT_FOUND:
-    return "Resource not found at this URI.";
-  case HTTP_MOVED_PERMANENTLY:
-    return "Resource permanently relocated. Clients should update stored URLs.";
-  default:
-    return "";
-  }
-}

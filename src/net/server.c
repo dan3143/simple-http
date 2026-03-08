@@ -1,6 +1,5 @@
 #include "net/server.h"
 #include "core/log.h"
-#include "http/http_processing.h"
 #include "misc/utils.h"
 #include <arpa/inet.h>
 #include <errno.h>
@@ -109,7 +108,7 @@ void listen_on_server_sock(int server_sockfd) {
     buffer[received_bytes] = '\0';
 
     log_debug("Handling data from %s as an HTTP request", s);
-    handle_http_request(client_sockfd, buffer, received_bytes, s);
+    // handle_http_request(client_sockfd, buffer, received_bytes, s);
 
     free(buffer);
     close(client_sockfd);
