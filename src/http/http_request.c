@@ -1,6 +1,6 @@
-#include "http_request.h"
-#include "http_response.h"
-#include "log.h"
+#include "http/http_request.h"
+#include "core/log.h"
+#include "http/http_response.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>

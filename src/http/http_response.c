@@ -1,7 +1,7 @@
-#include "http_response.h"
-#include "log.h"
-#include "string_builder.h"
-#include "utils.h"
+#include "http/http_response.h"
+#include "core/log.h"
+#include "misc/string_builder.h"
+#include "misc/utils.h"
 #include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <fcntl.h>

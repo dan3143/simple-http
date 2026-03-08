@@ -1,24 +1,25 @@
 CC = gcc
-CFLAGS = -Wall -g
-TARGET_NAME = simple-http
-SRC_DIR ?= src
-BUILD_DIR ?= build
+CFLAGS = -Wall -g -Iinclude
 
-SRCS = $(wildcard $(SRC_DIR)/*.c)
-OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
+TARGET_NAME = simple-http
+SRC_DIR = src
+BUILD_DIR = build
+
+SRCS := $(shell find $(SRC_DIR) -name '*.c')
+OBJS := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
+
 TARGET = $(BUILD_DIR)/$(TARGET_NAME)
 
-$(BUILD_DIR)/log.o: CFLAGS += -DLOG_USE_COLOR
+$(BUILD_DIR)/core/log.o: CFLAGS += -DLOG_USE_COLOR
 
-all: $(BUILD_DIR) $(TARGET)
-
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+all: $(TARGET)
 
 $(TARGET): $(OBJS)
+	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(OBJS)
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:

@@ -1,7 +1,7 @@
-#include "server.h"
-#include "http_processing.h"
-#include "log.h"
-#include "utils.h"
+#include "net/server.h"
+#include "core/log.h"
+#include "http/http_processing.h"
+#include "misc/utils.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>

@@ -1,6 +1,6 @@
-#include "http.h"
-#include "log.h"
-#include "utils.h"
+#include "http/http.h"
+#include "core/log.h"
+#include "misc/utils.h"
 #include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <linux/limits.h>
