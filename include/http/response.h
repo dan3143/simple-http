@@ -11,6 +11,7 @@ typedef struct {
   int status_code;
   const char *status_text;
   HttpHeaderList header_list;
+  HttpBody body;
 } HttpResponse;
 
 void send_error_response(int, HttpCode);

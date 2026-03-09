@@ -57,75 +57,83 @@ int init_server_sock(char *ipstr, char *port) {
   return server_sockfd;
 }
 
+char *allocate_buffer(HttpHandler *handler) {
+  char *buffer = malloc(BUFFER_CAPACITY);
+
+  if (!buffer) {
+    log_error("Failed allocating %d bytes");
+    handler->err = SRV_ERR_IO;
+    return NULL;
+  }
+
+  init_parser(handler, buffer);
+  return buffer;
+}
+
+int parse_request(int client_sock, HttpHandler *handler) {
+  log_debug("Parsing request");
+  while (1) {
+    int received_bytes;
+    log_debug("Receiving data...");
+    received_bytes = recv(client_sock, handler->buffer + handler->buffer_len,
+                          BUFFER_CAPACITY - handler->buffer_len, 0);
+
+    if (received_bytes < 0) {
+      log_error("Error while receiving: %s", strerror(errno));
+      handler->err = SRV_ERR_INTERNAL;
+      return -1;
+    }
+
+    if (received_bytes == 0) {
+      if (handler->parsing_state != PARSING_COMPLETE) {
+        log_error("Client closed the connection prematurely");
+        handler->err = SRV_ERR_BAD_REQUEST;
+        return -1;
+      }
+    }
+
+    if (received_bytes + handler->buffer_len >= BUFFER_CAPACITY) {
+      log_error("Not enough space in buffer");
+      handler->err = SRV_ERR_OVERFLOW;
+      return -1;
+    }
+
+    handler->buffer_len += received_bytes;
+    handler->buffer[handler->buffer_len] = '\0';
+
+    parse_http(handler);
+
+    if (handler->parsing_state == PARSING_ERROR)
+      return -1;
+    if (handler->parsing_state == PARSING_COMPLETE)
+      return 0;
+  }
+
+  log_debug("Parsing complete");
+}
+
 void handle_incoming_connection(int client_sock) {
 
   struct sockaddr_storage addr;
   char ipstr[INET6_ADDRSTRLEN];
   int port;
   socklen_t len;
+  HttpHandler handler;
 
   len = sizeof(addr);
-
-  char *buffer = malloc(BUFFER_CAPACITY);
   getpeername(client_sock, (struct sockaddr *)&addr, &len);
-
   get_addr_str((struct sockaddr *)&addr, ipstr);
   port = get_port((struct sockaddr *)&addr);
-
   log_debug("Accepted connection from %s:%d", ipstr, port);
 
-  HttpHandler handler;
-  init_parser(&handler, buffer);
-
-  if (!buffer) {
-    log_error("Failed allocating %d bytes to receive data from %s",
-              BUFFER_CAPACITY, ipstr);
-    handler.err = SRV_ERR_IO;
-    goto socket_cleanup;
+  if (!allocate_buffer(&handler)) {
+    goto cleanup_socket;
   }
 
-  while (1) {
-    int received_bytes;
-    log_debug("Receiving data...");
-    received_bytes = recv(client_sock, handler.buffer + handler.buffer_len,
-                          BUFFER_CAPACITY - handler.buffer_len, 0);
-    log_debug("Received %d bytes from %s", received_bytes, ipstr);
+  parse_request(client_sock, &handler);
 
-    if (received_bytes < 0) {
-      log_error("Could not receive data from %s", ipstr);
-      goto finish;
-    }
-
-    if (received_bytes == 0) {
-      if (handler.parsing_state != PARSING_COMPLETE) {
-        log_error("Server: client closed the connection prematurely");
-        break;
-      }
-    }
-
-    if (received_bytes + BUFFER_CAPACITY) {
-      log_error("Not enough space in buffer");
-      handler.err = SRV_ERR_OVERFLOW;
-      goto finish;
-    }
-
-    handler.buffer_len += received_bytes;
-    handler.buffer[handler.buffer_len] = '\0';
-
-    parse_http(&handler);
-
-    if (handler.parsing_state == PARSING_ERROR ||
-        handler.parsing_state == PARSING_COMPLETE) {
-      break;
-    }
-  }
-
-  log_debug("Parsing complete");
-
-finish:
-  free(buffer);
-
-socket_cleanup:
+  free(handler.buffer);
+cleanup_socket:
   close(client_sock);
   log_debug("Connection closed.");
 }

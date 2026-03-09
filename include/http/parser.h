@@ -15,11 +15,13 @@ typedef struct {
   char *path;
   char *http_version;
   HttpHeaderList header_list;
+  HttpBody body;
 } HttpRequest;
 
 typedef enum {
   PARSING_HEADER_END,
   PARSING_METADATA,
+  PARSING_CHECK_BODY,
   PARSING_BODY,
   PARSING_COMPLETE,
   PARSING_ERROR,
@@ -29,15 +31,15 @@ typedef struct {
   ParsingState parsing_state;
   ServerError err;
   HttpRequest req;
-  HttpBody body;
+  HttpResponse res;
 
   char *buffer;
   size_t buffer_len;
   size_t offset;
-  size_t header_end_pos;
+  size_t status_line_end_pos;
+  char *header_end_pos;
 } HttpHandler;
 
-HttpCode parse_request(char *, size_t, HttpRequest *, HttpBody *);
 void init_http_request(HttpRequest *);
 void init_parser(HttpHandler *, char *);
 void parse_http(HttpHandler *);

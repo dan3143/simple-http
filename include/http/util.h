@@ -53,12 +53,8 @@ typedef enum {
 typedef struct {
   HttpBodyType type;
   size_t length;
-
-  union {
-    char *buffer_data;
-    int fd;
-  };
-
+  char *buffer_data;
+  int fd;
 } HttpBody;
 
 const char *lookup_mime_type(const char *path);

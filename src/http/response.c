@@ -22,7 +22,8 @@ void init_http_response(HttpResponse *res, HttpCode code, const char *status) {
   res->status_text = status;
 }
 
-void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
+void serialize_response_metadata(HttpResponse res) {
+
   StringBuilder sb;
   sb_init(&sb);
   sb_appendf(&sb, "HTTP/1.1 %d %s\r\n", res.status_code, res.status_text);
@@ -33,7 +34,7 @@ void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
   }
 
   if (!get_header(&res.header_list, "Content-Length")) {
-    sb_appendf(&sb, "Content-Length: %d\r\n", body.length);
+    sb_appendf(&sb, "Content-Length: %d\r\n", res.body.length);
   }
 
   if (!get_header(&res.header_list, "Connection")) {
@@ -41,28 +42,7 @@ void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
   }
 
   sb_append(&sb, "\r\n");
-
-  size_t sent_len = sb.length;
-
-  send_all(socketfd, sb.data, &sent_len);
-
   sb_free(&sb);
-
-  if (body.type == BODY_BUFFER) {
-    sent_len = body.length;
-    send_all(socketfd, body.buffer_data, &sent_len);
-  } else if (body.type == BODY_FILE) {
-    off_t offset = 0;
-    size_t remaining = body.length;
-    while (remaining > 0) {
-      ssize_t sent = sendfile(socketfd, body.fd, &offset, remaining);
-      if (sent <= 0)
-        break;
-      remaining -= sent;
-    }
-    close(body.fd);
-  }
-  log_debug("Successfully sent HTTP response");
 }
 
 HttpCode send_file_http(int socketfd, char *path) {
@@ -90,7 +70,7 @@ HttpCode send_file_http(int socketfd, char *path) {
   body.type = BODY_FILE;
   body.fd = filefd;
   body.length = stat_buf.st_size;
-  send_http_response(socketfd, res, body);
+
   return HTTP_OK;
 }
 
@@ -115,8 +95,6 @@ void send_error_response(int socketfd, HttpCode code) {
   body.length = strlen(body_data);
 
   init_http_response(&res, code, status_text);
-
-  send_http_response(socketfd, res, body);
 
   return;
 }

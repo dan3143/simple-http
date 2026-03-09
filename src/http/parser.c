@@ -3,6 +3,7 @@
 #include "http/response.h"
 #include "misc/util.h"
 #include "net/server.h"
+#include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,11 +18,12 @@ void init_parser(HttpHandler *status, char *buffer) {
   status->offset = 0;
   status->parsing_state = PARSING_HEADER_END;
   init_http_request(&status->req);
-  init_http_body(&status->body);
+  init_http_body(&status->req.body);
   status->err = SRV_OK;
 }
 
 void detect_header_end(HttpHandler *status) {
+  log_debug("Looking for end of headers");
   char *start = status->buffer;
 
   if (status->offset + 3 >= status->buffer_len) {
@@ -38,20 +40,20 @@ void detect_header_end(HttpHandler *status) {
     size_t i = status->offset;
     if (start[i] == '\r' && start[i + 1] == '\n' && start[i + 2] == '\r' &&
         start[i + 3] == '\n') {
-      log_debug(
-          "Parser: found end of header section. Moving to parse metadata");
+      log_debug("Found end of header section. Moving to parse metadata");
       status->parsing_state = PARSING_METADATA;
-      status->offset = 0;
+      status->offset = i + 4;
+      status->header_end_pos = status->buffer + status->offset;
       return;
     }
     status->offset++;
   }
 
-  log_debug("Parser: have not found end of header section");
+  log_debug("Have not found end of header section");
 }
 
 void parse_first_line(HttpHandler *status) {
-  log_debug("Parser: parsing the first line");
+  log_debug("Parsing the first line");
   char *line_start = status->buffer;
   char *line_end = strchr(status->buffer, '\n');
   size_t line_len = line_end - line_start;
@@ -62,7 +64,7 @@ void parse_first_line(HttpHandler *status) {
   }
   char *first_space = strchr(status->buffer, ' ');
   if (!first_space) {
-    log_error("Parser: badly formatted HTTP status line. Bad request");
+    log_error("Badly formatted HTTP status line. Bad request");
     status->parsing_state = PARSING_ERROR;
     status->err = SRV_ERR_BAD_REQUEST;
     return;
@@ -73,7 +75,7 @@ void parse_first_line(HttpHandler *status) {
 
   char *second_space = strchr(first_space + 1, ' ');
   if (!second_space) {
-    log_error("Parser: badly formatted HTTP status line. Bad request");
+    log_error("Badly formatted HTTP status line. Bad request");
     status->parsing_state = PARSING_ERROR;
     status->err = SRV_ERR_BAD_REQUEST;
     return;
@@ -82,16 +84,13 @@ void parse_first_line(HttpHandler *status) {
   *second_space = '\0';
   status->req.path = first_space + 1;
   status->req.http_version = second_space + 1;
-  status->offset += line_len + 1; // Skip LF
-
-  // TODO: Check if method is allowed
-  // TODO: Check if HTTP version is supported
+  status->status_line_end_pos = line_len + 1;
 }
 
 void parse_headers(HttpHandler *status) {
-  char *line_start = status->buffer + status->offset;
+  char *line_start = status->buffer + status->status_line_end_pos;
 
-  log_debug("Parser: start parsing headers");
+  log_debug("Start parsing headers");
 
   while (!(line_start[0] == '\r' && line_start[1] == '\n')) {
     char *line_end = strchr(line_start, '\n');
@@ -124,16 +123,17 @@ void parse_headers(HttpHandler *status) {
       value++;
     }
     if (*value == '\0') {
-      log_error("Parser: empty header. Bad request.");
+      log_error("Empty header. Bad request.");
       status->parsing_state = PARSING_ERROR;
       status->err = SRV_ERR_BAD_REQUEST;
       return;
     }
+    *line_end = '\0';
     add_header(&status->req.header_list, name, value);
     line_start = line_end + 1;
   }
-  status->parsing_state = PARSING_BODY;
-  log_debug("parser: finished parsing headers. Going to parse body");
+  status->parsing_state = PARSING_CHECK_BODY;
+  log_debug("Finished parsing headers.");
 }
 
 void parse_metadata(HttpHandler *status) {
@@ -144,44 +144,79 @@ void parse_metadata(HttpHandler *status) {
   parse_headers(status);
 }
 
-void parse_body(HttpHandler *status) {
-  status->parsing_state = PARSING_COMPLETE;
+void check_body(HttpHandler *status) {
+  log_debug("Checking if there is a body");
+  HttpHeader *header = get_header(&status->req.header_list, "Content-Length");
+  if (!header) {
+    log_debug("No content-length header. Assuming there is no body");
+    status->parsing_state = PARSING_COMPLETE;
+    return;
+  }
+  log_debug("Content header found");
+  char *endptr;
+  status->req.body.type = BODY_BUFFER;
+  status->req.body.buffer_data = status->header_end_pos;
+  status->req.body.length = strtol(header->value, &endptr, 10);
+
+  if (*endptr != '\0' || errno == ERANGE) {
+    log_debug("Bad body length. Bad request.");
+    status->parsing_state = PARSING_ERROR;
+    status->err = SRV_ERR_BAD_REQUEST;
+    return;
+  }
+  status->parsing_state = PARSING_BODY;
 }
 
-void make_response(HttpHandler *status) {}
+void parse_body(HttpHandler *status) {
+  log_debug("Parsing body");
+  size_t metadata_size = status->header_end_pos - status->buffer;
+  log_debug("Stats\nMetadata size: %zu\nBody size: %zu\nBuffer len: %zu",
+            metadata_size, status->req.body.length, status->buffer_len);
+  if (status->buffer_len < metadata_size + status->req.body.length) {
+    log_debug("Body still not full. Waiting for more bytes");
+    status->offset = status->buffer_len;
+    status->err = SRV_AGAIN;
+    return;
+  }
+  status->offset = metadata_size + status->req.body.length + 1;
+  status->buffer[status->offset] = '\0';
+  status->err = SRV_OK;
+  status->parsing_state = PARSING_COMPLETE;
+  log_debug("Body complete:\n%s", status->req.body.buffer_data);
+}
 
 void parse_http(HttpHandler *status) {
-  log_debug("Parser: parsing from %zu to %zu", status->offset,
-            status->buffer_len);
+  log_debug("Parsing from %zu to %zu", status->offset, status->buffer_len);
   while (1) {
 
     if (status->offset >= status->buffer_len) {
-      log_debug("Parser: consumed all bytes, waiting for more...");
+      log_debug("Consumed all bytes, waiting for more...");
       return;
     }
 
     switch (status->parsing_state) {
     case PARSING_HEADER_END:
-      log_debug("Parser: looking for end of headers section");
       detect_header_end(status);
       break;
-    case PARSING_METADATA: // We know that we have received all the metadata
-      log_debug("Parser: parsing metadata");
+    case PARSING_METADATA:
       parse_metadata(status);
       break;
-    case PARSING_BODY: // We should know Content-Length
-      log_debug("Parser: parsing body");
+    case PARSING_CHECK_BODY:
+      check_body(status);
+      break;
+    case PARSING_BODY:
+      log_debug("Start parsing body");
       parse_body(status);
       break;
     case PARSING_ERROR:
-      log_debug("Parser: there was an error");
+      log_debug("There was an error while parsing");
     case PARSING_COMPLETE:
-      log_debug("Parser: finished parsing");
+      log_debug("Finished parsing");
       return;
     }
 
     if (status->err == SRV_AGAIN) {
-      log_debug("Parser: need more bytes to continue parsing");
+      log_debug("Need more bytes to continue parsing");
       return;
     }
   }
