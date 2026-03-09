@@ -9,6 +9,7 @@ typedef enum {
   SRV_ERR_BAD_REQUEST,
   SRV_ERR_INTERNAL,
   SRV_ERR_IO,
+  SRV_ERR_OVERFLOW,
 } ServerError;
 
 void listen_on(char *, char *);

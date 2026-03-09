@@ -21,8 +21,14 @@ const char *http_code_to_text(HttpCode code) {
     return "Not Found";
   case HTTP_MOVED_PERMANENTLY:
     return "Moved Permanently";
-  default:
-    return "";
+  case HTTP_CONTINUE:
+    return "Continue";
+  case HTTP_METHOD_NOT_ALLOWED:
+    return "Method Not Allowed";
+  case HTTP_URI_TOO_LONG:
+    return "URI Too Long";
+  case HTTP_NOT_IMPLEMENTED:
+    return "Not Implemented";
   }
 }
 
@@ -46,7 +52,14 @@ const char *http_code_to_description(HttpCode code) {
     return "Resource not found at this URI.";
   case HTTP_MOVED_PERMANENTLY:
     return "Resource permanently relocated. Clients should update stored URLs.";
-  default:
+  case HTTP_METHOD_NOT_ALLOWED:
+    return "The request method is not supported for the requested resource.";
+  case HTTP_URI_TOO_LONG:
+    return "The URI provided was too long for the server to process.";
+  case HTTP_NOT_IMPLEMENTED:
+    return "The server either does not recognize the request method, or it "
+           "lacks the ability to fulfil the request.";
+  case HTTP_CONTINUE:
     return "";
   }
 }
@@ -67,7 +80,9 @@ HttpCode srv_err_to_http_err(ServerError err) {
   case SRV_OK:
     return HTTP_OK;
 
-  default:
-    return HTTP_OK;
+  case SRV_AGAIN:
+    return HTTP_CONTINUE;
+  case SRV_ERR_OVERFLOW:
+    return HTTP_CONTENT_TOO_LARGE;
   }
 }

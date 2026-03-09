@@ -14,6 +14,7 @@ typedef struct {
 } MimeEntry;
 
 typedef enum {
+  HTTP_CONTINUE = 100,
   HTTP_OK = 200,
   HTTP_MOVED_PERMANENTLY = 301,
   HTTP_FOUND = 302,
