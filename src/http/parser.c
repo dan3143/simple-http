@@ -1,7 +1,7 @@
 #include "http/parser.h"
 #include "core/log.h"
 #include "http/response.h"
-#include "misc/utils.h"
+#include "misc/util.h"
 #include "net/server.h"
 #include <stddef.h>
 #include <stdio.h>
@@ -11,8 +11,7 @@
 
 void init_http_request(HttpRequest *req) { req->header_list.header_count = 0; }
 
-void init_parser(HttpParser *status, char *buffer, size_t buffer_capacity) {
-  status->buffer_capacity = buffer_capacity;
+void init_parser(HttpHandler *status, char *buffer) {
   status->buffer = buffer;
   status->buffer_len = 0;
   status->offset = 0;
@@ -22,7 +21,7 @@ void init_parser(HttpParser *status, char *buffer, size_t buffer_capacity) {
   status->err = SRV_OK;
 }
 
-void detect_header_end(HttpParser *status) {
+void detect_header_end(HttpHandler *status) {
   char *start = status->buffer;
 
   if (status->offset + 3 >= status->buffer_len) {
@@ -51,7 +50,7 @@ void detect_header_end(HttpParser *status) {
   log_debug("Parser: have not found end of header section");
 }
 
-void parse_first_line(HttpParser *status) {
+void parse_first_line(HttpHandler *status) {
   log_debug("Parser: parsing the first line");
   char *line_start = status->buffer;
   char *line_end = strchr(status->buffer, '\n');
@@ -89,7 +88,7 @@ void parse_first_line(HttpParser *status) {
   // TODO: Check if HTTP version is supported
 }
 
-void parse_headers(HttpParser *status) {
+void parse_headers(HttpHandler *status) {
   char *line_start = status->buffer + status->offset;
 
   log_debug("Parser: start parsing headers");
@@ -137,7 +136,7 @@ void parse_headers(HttpParser *status) {
   log_debug("parser: finished parsing headers. Going to parse body");
 }
 
-void parse_metadata(HttpParser *status) {
+void parse_metadata(HttpHandler *status) {
   init_http_request(&status->req);
   parse_first_line(status);
   if (status->parsing_state == PARSING_ERROR)
@@ -145,13 +144,13 @@ void parse_metadata(HttpParser *status) {
   parse_headers(status);
 }
 
-void parse_body(HttpParser *status) {
+void parse_body(HttpHandler *status) {
   status->parsing_state = PARSING_COMPLETE;
 }
 
-void make_response(HttpParser *status) {}
+void make_response(HttpHandler *status) {}
 
-void parse_http(HttpParser *status) {
+void parse_http(HttpHandler *status) {
   log_debug("Parser: parsing from %zu to %zu", status->offset,
             status->buffer_len);
   while (1) {

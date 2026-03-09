@@ -32,15 +32,14 @@ typedef struct {
   HttpBody body;
 
   char *buffer;
-  size_t buffer_capacity;
   size_t buffer_len;
   size_t offset;
   size_t header_end_pos;
-} HttpParser;
+} HttpHandler;
 
 HttpCode parse_request(char *, size_t, HttpRequest *, HttpBody *);
 void init_http_request(HttpRequest *);
-void init_parser(HttpParser *, char *, size_t);
-void parse_http(HttpParser *);
+void init_parser(HttpHandler *, char *);
+void parse_http(HttpHandler *);
 
 #endif

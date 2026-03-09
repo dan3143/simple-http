@@ -4,14 +4,14 @@
 #include <stddef.h>
 #include <sys/socket.h>
 
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef MISC_UTIL_H
+#define MISC_UTIL_H
 
+int get_port(struct sockaddr *);
+int send_all(int, char *, size_t *);
 bool file_exists(char *);
 char *get_file_extension(const char *);
 void get_addr_str(struct sockaddr *, char *);
-int get_port(struct sockaddr *);
-int send_all(int, char *, size_t *);
 void print_hex_bytes(char *, size_t);
 
 typedef struct {

@@ -1,7 +1,7 @@
 #include "http/response.h"
 #include "core/log.h"
 #include "misc/string_builder.h"
-#include "misc/utils.h"
+#include "misc/util.h"
 #include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -15,14 +15,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-int body_get_length(HttpBody body) {
-  if (body.type == BODY_BUFFER)
-    return body.buffer.length;
-  if (body.type == BODY_FILE)
-    return body.buffer.length;
-  return 0;
-}
 
 void init_http_response(HttpResponse *res, HttpCode code, const char *status) {
   res->header_list.header_count = 0;
@@ -41,8 +33,7 @@ void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
   }
 
   if (!get_header(&res.header_list, "Content-Length")) {
-    size_t content_length = body_get_length(body);
-    sb_appendf(&sb, "Content-Length: %d\r\n", content_length);
+    sb_appendf(&sb, "Content-Length: %d\r\n", body.length);
   }
 
   if (!get_header(&res.header_list, "Connection")) {
@@ -58,18 +49,18 @@ void send_http_response(int socketfd, HttpResponse res, HttpBody body) {
   sb_free(&sb);
 
   if (body.type == BODY_BUFFER) {
-    sent_len = body.buffer.length;
-    send_all(socketfd, body.buffer.data, &sent_len);
+    sent_len = body.length;
+    send_all(socketfd, body.buffer_data, &sent_len);
   } else if (body.type == BODY_FILE) {
     off_t offset = 0;
-    size_t remaining = body.file.length;
+    size_t remaining = body.length;
     while (remaining > 0) {
-      ssize_t sent = sendfile(socketfd, body.file.fd, &offset, remaining);
+      ssize_t sent = sendfile(socketfd, body.fd, &offset, remaining);
       if (sent <= 0)
         break;
       remaining -= sent;
     }
-    close(body.file.fd);
+    close(body.fd);
   }
   log_debug("Successfully sent HTTP response");
 }
@@ -97,8 +88,8 @@ HttpCode send_file_http(int socketfd, char *path) {
   init_http_body(&body);
   init_http_response(&res, HTTP_OK, "OK");
   body.type = BODY_FILE;
-  body.file.fd = filefd;
-  body.file.length = stat_buf.st_size;
+  body.fd = filefd;
+  body.length = stat_buf.st_size;
   send_http_response(socketfd, res, body);
   return HTTP_OK;
 }
@@ -115,13 +106,13 @@ void send_error_response(int socketfd, HttpCode code) {
   HttpBody body;
 
   body.type = BODY_BUFFER;
-  body.buffer.data = body_data;
+  body.buffer_data = body_data;
   const char *status_text = http_code_to_text(code);
   const char *status_desc = http_code_to_description(code);
   snprintf(body_data, sizeof(body_data), ERROR_PAGE_TEMPLATE, code, status_text,
            code, status_text, status_desc);
-  body.buffer.data = body_data;
-  body.buffer.length = strlen(body_data);
+  body.buffer_data = body_data;
+  body.length = strlen(body_data);
 
   init_http_response(&res, code, status_text);
 

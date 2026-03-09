@@ -1,7 +1,7 @@
 #include "net/server.h"
 #include "core/log.h"
 #include "http/parser.h"
-#include "misc/utils.h"
+#include "misc/util.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
@@ -57,6 +57,79 @@ int init_server_sock(char *ipstr, char *port) {
   return server_sockfd;
 }
 
+void handle_incoming_connection(int client_sock) {
+
+  struct sockaddr_storage addr;
+  char ipstr[INET6_ADDRSTRLEN];
+  int port;
+  socklen_t len;
+
+  len = sizeof(addr);
+
+  char *buffer = malloc(BUFFER_CAPACITY);
+  getpeername(client_sock, (struct sockaddr *)&addr, &len);
+
+  get_addr_str((struct sockaddr *)&addr, ipstr);
+  port = get_port((struct sockaddr *)&addr);
+
+  log_debug("Accepted connection from %s:%d", ipstr, port);
+
+  HttpHandler handler;
+  init_parser(&handler, buffer);
+
+  if (!buffer) {
+    log_error("Failed allocating %d bytes to receive data from %s",
+              BUFFER_CAPACITY, ipstr);
+    handler.err = SRV_ERR_IO;
+    goto socket_cleanup;
+  }
+
+  while (1) {
+    int received_bytes;
+    log_debug("Receiving data...");
+    received_bytes = recv(client_sock, handler.buffer + handler.buffer_len,
+                          BUFFER_CAPACITY - handler.buffer_len, 0);
+    log_debug("Received %d bytes from %s", received_bytes, ipstr);
+
+    if (received_bytes < 0) {
+      log_error("Could not receive data from %s", ipstr);
+      goto finish;
+    }
+
+    if (received_bytes == 0) {
+      if (handler.parsing_state != PARSING_COMPLETE) {
+        log_error("Server: client closed the connection prematurely");
+        break;
+      }
+    }
+
+    if (received_bytes + BUFFER_CAPACITY) {
+      log_error("Not enough space in buffer");
+      handler.err = SRV_ERR_OVERFLOW;
+      goto finish;
+    }
+
+    handler.buffer_len += received_bytes;
+    handler.buffer[handler.buffer_len] = '\0';
+
+    parse_http(&handler);
+
+    if (handler.parsing_state == PARSING_ERROR ||
+        handler.parsing_state == PARSING_COMPLETE) {
+      break;
+    }
+  }
+
+  log_debug("Parsing complete");
+
+finish:
+  free(buffer);
+
+socket_cleanup:
+  close(client_sock);
+  log_debug("Connection closed.");
+}
+
 void listen_on_server_sock(int server_sock) {
 
   if (listen(server_sock, BACKLOG) == -1) {
@@ -67,8 +140,6 @@ void listen_on_server_sock(int server_sock) {
   struct sockaddr_storage client_addr;
   socklen_t sin_size;
   int client_sock;
-  char s[INET6_ADDRSTRLEN];
-  int port;
 
   while (1) {
 
@@ -81,61 +152,7 @@ void listen_on_server_sock(int server_sock) {
       continue;
     }
 
-    get_addr_str((struct sockaddr *)&client_addr, s);
-    port = get_port((struct sockaddr *)&client_addr);
-
-    log_debug("Connection from %s:%d accepted", s, port);
-
-    char *buffer = malloc(BUFFER_CAPACITY);
-
-    HttpParser parser;
-    init_parser(&parser, buffer, BUFFER_CAPACITY);
-
-    if (!buffer) {
-      log_error("Failed allocating %d bytes to receive data from %s",
-                BUFFER_CAPACITY, s);
-      close(client_sock); // TODO: send 500 error instead
-      continue;
-    }
-
-    while (1) {
-      int received_bytes;
-      log_debug("Receiving data...");
-      received_bytes = recv(client_sock, parser.buffer + parser.buffer_len,
-                            BUFFER_CAPACITY - parser.buffer_len, 0);
-      log_debug("Received %d bytes from %s", received_bytes, s);
-
-      // TODO: handle this
-      if (received_bytes < 0) {
-        log_error("Could not receive data from %s", s);
-        break;
-      }
-
-      if (received_bytes == 0) {
-        if (parser.parsing_state != PARSING_COMPLETE) {
-          log_error("Server: client closed the connection prematurely");
-          break;
-        }
-      }
-
-      // TODO: check if received bytes go out of bounds
-
-      parser.buffer_len += received_bytes;
-      parser.buffer[parser.buffer_len] = '\0';
-
-      parse_http(&parser);
-
-      if (parser.parsing_state == PARSING_ERROR ||
-          parser.parsing_state == PARSING_COMPLETE) {
-        break;
-      }
-    }
-
-    log_debug("Parsing complete");
-
-    close(client_sock);
-    free(buffer);
-    log_debug("Connection closed.");
+    handle_incoming_connection(client_sock);
   }
 }
 
