@@ -186,7 +186,7 @@ void parse_http(HttpHandler *status) {
   log_debug("Parsing from %zu to %zu", status->offset, status->buffer_len);
   while (1) {
 
-    if (status->offset >= status->buffer_len) {
+    if (status->err == SRV_AGAIN && status->offset >= status->buffer_len) {
       log_debug("Consumed all bytes, waiting for more...");
       return;
     }

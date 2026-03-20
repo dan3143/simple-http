@@ -28,22 +28,22 @@ void init_http_response(HttpResponse *res, HttpCode code, const char *status) {
   res->status_text = status;
 }
 
-void serialize_response_metadata(HttpResponse res, char *out) {
+void serialize_response_metadata(HttpResponse *res, char *out) {
 
   StringBuilder sb;
   sb_init(&sb);
-  sb_appendf(&sb, "HTTP/1.1 %d %s\r\n", res.status_code, res.status_text);
+  sb_appendf(&sb, "HTTP/1.1 %d %s\r\n", res->status_code, res->status_text);
 
-  for (size_t i = 0; i < res.header_list.header_count; i++) {
-    sb_appendf(&sb, "%s: %s\r\n", res.header_list.headers[i].name,
-               res.header_list.headers[i].value);
+  for (size_t i = 0; i < res->header_list.header_count; i++) {
+    sb_appendf(&sb, "%s: %s\r\n", res->header_list.headers[i].name,
+               res->header_list.headers[i].value);
   }
 
-  if (!get_header(&res.header_list, "Content-Length")) {
-    sb_appendf(&sb, "Content-Length: %d\r\n", res.body.length);
+  if (!get_header(&res->header_list, "Content-Length")) {
+    sb_appendf(&sb, "Content-Length: %d\r\n", res->body.length);
   }
 
-  if (!get_header(&res.header_list, "Connection")) {
+  if (!get_header(&res->header_list, "Connection")) {
     sb_append(&sb, "Connection: close\r\n");
   }
 
@@ -66,9 +66,7 @@ void make_error_response(HttpCode code, HttpResponse *res) {
 
   body.type = BODY_BUFFER;
   body.buffer_data = body_data;
-  body.buffer_data = body_data;
-  body.length = strlen(body_data);
-
+  body.length = strlen(body.buffer_data);
   init_http_response(res, code, status_text);
   res->body = body;
 }

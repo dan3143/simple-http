@@ -7,8 +7,11 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -113,6 +116,38 @@ int parse_request(int client_sock, HttpHandler *handler) {
   log_debug("Parsing complete");
 }
 
+void send_response(int client_sock, HttpResponse *res) {
+  char *metadata_str = malloc(BUFFER_CAPACITY - res->body.length);
+  serialize_response_metadata(res, metadata_str);
+
+  size_t metadata_len = strlen(metadata_str);
+
+  send_all(client_sock, metadata_str, &metadata_len);
+  free(metadata_str);
+
+  if (res->body.type == BODY_BUFFER) {
+    size_t body_len = res->body.length;
+    log_debug("Sending body: %s", res->body.buffer_data);
+    send_all(client_sock, res->body.buffer_data, &body_len);
+    return;
+  }
+
+  if (res->body.type == BODY_FILE) {
+    log_debug("Sending file");
+    off_t offset = 0;
+    size_t remaining = res->body.length;
+
+    while (remaining > 0) {
+      ssize_t sent = sendfile(client_sock, res->body.fd, &offset, remaining);
+      if (sent <= 0)
+        break;
+      remaining -= sent;
+    }
+
+    close(res->body.fd);
+  }
+}
+
 void handle_incoming_connection(int client_sock) {
 
   struct sockaddr_storage addr;
@@ -134,7 +169,7 @@ void handle_incoming_connection(int client_sock) {
 
   parse_request(client_sock, &handler);
   make_response(&handler, &res);
-  // send_response(client_sock, &res);
+  send_response(client_sock, &res);
 
   free(handler.buffer);
 cleanup_socket:
