@@ -1,6 +1,7 @@
 #include "core/log.h"
 #include "http/util.h"
 #include "misc/util.h"
+#include "net/server.h"
 #include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <linux/limits.h>
@@ -22,6 +23,8 @@ const MimeEntry mime_table[] = {{"html", "text/html; charset=utf-8"},
                                 {"svg", "image/svg+xml"},
                                 {"txt", "text/plain; charset=utf-8"}};
 
+const char *supported_methods[8] = {"GET", "HEAD"};
+
 void init_http_body(HttpBody *body) {
   body->type = BODY_NONE;
   body->length = 0;
@@ -42,7 +45,8 @@ const char *lookup_mime_type(const char *path) {
   return "application/octect-stream";
 }
 
-HttpCode normalize_path(const char *path, const char *root_path, char *output) {
+ServerError normalize_path(const char *path, const char *root_path,
+                           char *output) {
   char canonical_root[PATH_MAX];
   char temp[PATH_MAX];
   char actual_path[PATH_MAX];
@@ -70,15 +74,15 @@ HttpCode normalize_path(const char *path, const char *root_path, char *output) {
   if (!realpath(temp, output)) {
     if (errno == ENOENT) {
       log_debug("File does not exist: %s", temp);
-      return HTTP_NOT_FOUND;
+      return SRV_ERR_NOT_FOUND;
     }
     log_debug("Could not obtain realpath: %s", strerror(errno));
-    return HTTP_BAD_REQUEST;
+    return SRV_ERR_BAD_REQUEST;
   }
 
-  if (strncmp(output, temp, strlen(canonical_root)) == 0)
-    return HTTP_OK;
-  return HTTP_BAD_REQUEST;
+  if (strncmp(output, canonical_root, strlen(canonical_root)) == 0)
+    return SRV_OK;
+  return SRV_ERR_BAD_REQUEST;
 }
 
 bool add_header(HttpHeaderList *list, const char *name, const char *value) {
@@ -100,3 +104,13 @@ HttpHeader *get_header(HttpHeaderList *list, const char *name) {
 }
 
 bool is_http_error(HttpCode code) { return code >= 400 && code < 600; }
+
+bool is_method_supported(char *method) {
+  size_t n = sizeof(supported_methods) / sizeof(supported_methods[0]);
+  for (size_t i = 0; i < n; i++) {
+    if (strcmp(method, supported_methods[i]) == 0) {
+      return true;
+    }
+  }
+  return false;
+}

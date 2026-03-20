@@ -1,3 +1,4 @@
+#include "net/server.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -60,11 +61,12 @@ typedef struct {
 const char *lookup_mime_type(const char *path);
 const char *http_code_to_text(HttpCode);
 const char *http_code_to_description(HttpCode);
-HttpCode normalize_path(const char *, const char *, char *);
+ServerError normalize_path(const char *, const char *, char *);
 bool add_header(HttpHeaderList *, const char *, const char *);
 HttpHeader *get_header(HttpHeaderList *, const char *);
 void init_http_body(HttpBody *);
 bool is_http_error(HttpCode);
+bool is_method_supported(char *);
 
 static const char *ERROR_PAGE_TEMPLATE =
     "<!DOCTYPE html>\n"

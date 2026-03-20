@@ -1,6 +1,7 @@
 #include "net/server.h"
 #include "core/log.h"
 #include "http/parser.h"
+#include "http/response.h"
 #include "misc/util.h"
 #include <arpa/inet.h>
 #include <errno.h>
@@ -108,7 +109,7 @@ int parse_request(int client_sock, HttpHandler *handler) {
     if (handler->parsing_state == PARSING_COMPLETE)
       return 0;
   }
-
+  return -1;
   log_debug("Parsing complete");
 }
 
@@ -119,6 +120,7 @@ void handle_incoming_connection(int client_sock) {
   int port;
   socklen_t len;
   HttpHandler handler;
+  HttpResponse res;
 
   len = sizeof(addr);
   getpeername(client_sock, (struct sockaddr *)&addr, &len);
@@ -131,6 +133,8 @@ void handle_incoming_connection(int client_sock) {
   }
 
   parse_request(client_sock, &handler);
+  make_response(&handler, &res);
+  // send_response(client_sock, &res);
 
   free(handler.buffer);
 cleanup_socket:

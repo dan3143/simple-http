@@ -1,10 +1,14 @@
 #include "http/response.h"
 #include "core/log.h"
+#include "core/strings.h"
+#include "http/parser.h"
 #include "misc/string_builder.h"
 #include "misc/util.h"
+#include "net/server.h"
 #include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -16,13 +20,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+extern ServerConfig config;
+
 void init_http_response(HttpResponse *res, HttpCode code, const char *status) {
   res->header_list.header_count = 0;
   res->status_code = code;
   res->status_text = status;
 }
 
-void serialize_response_metadata(HttpResponse res) {
+void serialize_response_metadata(HttpResponse res, char *out) {
 
   StringBuilder sb;
   sb_init(&sb);
@@ -42,59 +48,88 @@ void serialize_response_metadata(HttpResponse res) {
   }
 
   sb_append(&sb, "\r\n");
+  strncpy(out, sb.data, sb.length);
+  out[sb.length] = '\0';
   sb_free(&sb);
 }
 
-HttpCode send_file_http(int socketfd, char *path) {
+void make_error_response(HttpCode code, HttpResponse *res) {
+
+  char body_data[4096];
+  HttpBody body;
+
+  const char *status_text = http_code_to_text(code);
+  const char *status_desc = http_code_to_description(code);
+
+  snprintf(body_data, sizeof(body_data), ERROR_PAGE_TEMPLATE, code, status_text,
+           code, status_text, status_desc);
+
+  body.type = BODY_BUFFER;
+  body.buffer_data = body_data;
+  body.buffer_data = body_data;
+  body.length = strlen(body_data);
+
+  init_http_response(res, code, status_text);
+  res->body = body;
+}
+
+void make_file_response(char *path, HttpResponse *out_res) {
   int filefd = open(path, O_RDONLY);
   struct stat stat_buf;
 
   if (filefd == -1) {
     log_error("Error opening file %s: %s", path, strerror(errno));
     if (errno == ENOENT) {
-      return HTTP_NOT_FOUND;
+      make_error_response(HTTP_NOT_FOUND, out_res);
+      return;
     }
-    return HTTP_INTERNAL_SERVER_ERROR;
+    make_error_response(HTTP_INTERNAL_SERVER_ERROR, out_res);
+    return;
   }
 
   if (fstat(filefd, &stat_buf) < 0) {
     log_error("Error getting file stats for %s: %s", path, strerror(errno));
     close(filefd);
-    return HTTP_INTERNAL_SERVER_ERROR;
-  }
-
-  HttpBody body;
-  HttpResponse res;
-  init_http_body(&body);
-  init_http_response(&res, HTTP_OK, "OK");
-  body.type = BODY_FILE;
-  body.fd = filefd;
-  body.length = stat_buf.st_size;
-
-  return HTTP_OK;
-}
-
-void send_error_response(int socketfd, HttpCode code) {
-
-  if (!(is_http_error(code))) {
-    log_error("Trying to send an error message with a non-error HTTP code");
+    make_error_response(HTTP_INTERNAL_SERVER_ERROR, out_res);
     return;
   }
 
-  char body_data[4096];
-  HttpResponse res;
   HttpBody body;
+  init_http_body(&body);
+  init_http_response(out_res, HTTP_OK, "OK");
 
-  body.type = BODY_BUFFER;
-  body.buffer_data = body_data;
-  const char *status_text = http_code_to_text(code);
-  const char *status_desc = http_code_to_description(code);
-  snprintf(body_data, sizeof(body_data), ERROR_PAGE_TEMPLATE, code, status_text,
-           code, status_text, status_desc);
-  body.buffer_data = body_data;
-  body.length = strlen(body_data);
+  char content_length_str[MAX_HEADER_VALUE];
+  snprintf(content_length_str, MAX_HEADER_VALUE, "%zu", stat_buf.st_size);
+  const char *mime_type = lookup_mime_type(path);
 
-  init_http_response(&res, code, status_text);
+  add_header(&out_res->header_list, "Content-Type", mime_type);
+  add_header(&out_res->header_list, "Content-Length", content_length_str);
 
-  return;
+  body.type = BODY_FILE;
+  body.fd = filefd;
+  body.length = stat_buf.st_size;
+  out_res->body = body;
+}
+
+void make_response(HttpHandler *handler, HttpResponse *out_res) {
+  HttpRequest req = handler->req;
+
+  if (handler->err != SRV_OK) {
+    make_error_response(srv_err_to_http_err(handler->err), out_res);
+    return;
+  }
+
+  if (!is_method_supported(req.method)) {
+    make_error_response(HTTP_NOT_IMPLEMENTED, out_res);
+    return;
+  }
+
+  char normalized_path[PATH_MAX];
+  ServerError err = normalize_path(req.path, config.root_dir, normalized_path);
+  if (err != SRV_OK) {
+    make_error_response(srv_err_to_http_err(err), out_res);
+    return;
+  }
+
+  make_file_response(normalized_path, out_res);
 }

@@ -1,6 +1,6 @@
 #ifndef HTTP_RESPONSE_H
 #define HTTP_RESPONSE_H
-
+#include "http/parser.h"
 #include "http/util.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -16,5 +16,6 @@ typedef struct {
 
 void send_error_response(int, HttpCode);
 HttpCode send_file_http(int, char *);
+void make_response(HttpHandler *, HttpResponse *);
 
 #endif

@@ -1,7 +1,6 @@
 #ifndef HTTP_REQUEST_H
 #define HTTP_REQUEST_H
 
-#include "http/response.h"
 #include "http/util.h"
 #include "net/server.h"
 #include <stddef.h>
@@ -31,7 +30,6 @@ typedef struct {
   ParsingState parsing_state;
   ServerError err;
   HttpRequest req;
-  HttpResponse res;
 
   char *buffer;
   size_t buffer_len;

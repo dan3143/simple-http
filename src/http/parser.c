@@ -1,6 +1,5 @@
 #include "http/parser.h"
 #include "core/log.h"
-#include "http/response.h"
 #include "misc/util.h"
 #include "net/server.h"
 #include <errno.h>
@@ -170,8 +169,6 @@ void check_body(HttpHandler *status) {
 void parse_body(HttpHandler *status) {
   log_debug("Parsing body");
   size_t metadata_size = status->header_end_pos - status->buffer;
-  log_debug("Stats\nMetadata size: %zu\nBody size: %zu\nBuffer len: %zu",
-            metadata_size, status->req.body.length, status->buffer_len);
   if (status->buffer_len < metadata_size + status->req.body.length) {
     log_debug("Body still not full. Waiting for more bytes");
     status->offset = status->buffer_len;
