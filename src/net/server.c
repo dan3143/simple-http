@@ -89,21 +89,21 @@ int parse_request(int client_sock, HttpHandler *handler) {
     }
 
     if (received_bytes == 0) {
+      log_error("Client closed the connection");
       if (handler->parsing_state != PARSING_COMPLETE) {
-        log_error("Client closed the connection prematurely");
         handler->err = SRV_ERR_BAD_REQUEST;
-        return -1;
       }
+      return -1;
     }
 
-    if (received_bytes + handler->buffer_len >= BUFFER_CAPACITY) {
+    if (received_bytes + handler->buffer_len >= BUFFER_CAPACITY - 1) {
       log_error("Not enough space in buffer");
       handler->err = SRV_ERR_OVERFLOW;
       return -1;
     }
 
     handler->buffer_len += received_bytes;
-    handler->buffer[handler->buffer_len] = '\0';
+    // handler->buffer[handler->buffer_len] = '\0';
 
     parse_http(handler);
 
@@ -113,7 +113,6 @@ int parse_request(int client_sock, HttpHandler *handler) {
       return 0;
   }
   return -1;
-  log_debug("Parsing complete");
 }
 
 void send_response(int client_sock, HttpResponse *res) {
