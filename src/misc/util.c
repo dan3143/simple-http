@@ -52,7 +52,7 @@ int send_all(int fd, char *buf, size_t *len) {
   int n;
   while (total < *len) {
     n = send(fd, buf + total, bytes_left, 0);
-    if (n == -1) {
+    if (n <= 0) {
       break;
     }
     total += n;

@@ -1,5 +1,7 @@
 CC = gcc
-CFLAGS = -Wall -g -Iinclude
+
+CFLAGS  = -Wall -g -Iinclude -pthread
+LDFLAGS = -pthread
 
 TARGET_NAME = simple-http
 SRC_DIR = src
@@ -16,7 +18,7 @@ all: $(TARGET)
 
 $(TARGET): $(OBJS)
 	@mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -o $@ $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)

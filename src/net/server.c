@@ -1,5 +1,7 @@
 #include "net/server.h"
+#include "core/job_queue.h"
 #include "core/log.h"
+#include "core/worker_pool.h"
 #include "http/parser.h"
 #include "http/response.h"
 #include "misc/util.h"
@@ -7,6 +9,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,8 +19,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define BACKLOG 10
+#define BACKLOG 1024
 #define BUFFER_CAPACITY 16384
+
+extern ServerConfig config;
 
 int init_server_sock(char *ipstr, char *port) {
   int server_sockfd, status;
@@ -90,10 +95,7 @@ int parse_request(int client_sock, HttpParser *parser) {
 
     if (received_bytes == 0) {
       log_error("Client closed the connection");
-      if (parser->parsing_state != PARSING_COMPLETE) {
-        parser->err = SRV_ERR_BAD_REQUEST;
-      }
-      return -1;
+      return SRV_ERR_CONN_RST;
     }
 
     if (received_bytes + parser->buffer_len >= BUFFER_CAPACITY - 1) {
@@ -157,7 +159,6 @@ void handle_incoming_connection(int client_sock) {
   int port;
   socklen_t len;
   HttpParser handler;
-  HttpResponse *res = init_http_response();
 
   len = sizeof(addr);
   getpeername(client_sock, (struct sockaddr *)&addr, &len);
@@ -169,7 +170,12 @@ void handle_incoming_connection(int client_sock) {
     goto cleanup_socket;
   }
 
-  parse_request(client_sock, &handler);
+  ServerError err = parse_request(client_sock, &handler);
+
+  if (err == SRV_ERR_CONN_RST) {
+    goto cleanup_parser;
+  }
+  HttpResponse *res = init_http_response();
   make_response(&handler, res);
   send_response(client_sock, res);
 
@@ -178,10 +184,10 @@ void handle_incoming_connection(int client_sock) {
            res->status_text);
 
   free_http_response(res);
+cleanup_parser:
   free(handler.buffer);
 cleanup_socket:
   close(client_sock);
-  log_debug("Connection closed.");
 }
 
 void listen_on_server_sock(int server_sock) {
@@ -195,6 +201,8 @@ void listen_on_server_sock(int server_sock) {
   socklen_t sin_size;
   int client_sock;
 
+  WorkerPool *pool = init_worker_pool(config.workers);
+  log_debug("Created pool of %d workers", config.workers);
   while (1) {
 
     sin_size = sizeof client_addr;
@@ -206,7 +214,8 @@ void listen_on_server_sock(int server_sock) {
       continue;
     }
 
-    handle_incoming_connection(client_sock);
+    log_debug("Adding to queue...");
+    enqueue_job(client_sock, pool->queue);
   }
 }
 
