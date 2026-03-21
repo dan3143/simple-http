@@ -115,7 +115,7 @@ int parse_request(int client_sock, HttpHandler *handler) {
 }
 
 void send_response(int client_sock, HttpResponse *res) {
-  char *metadata_str = malloc(BUFFER_CAPACITY - res->body.length);
+  char *metadata_str = malloc(BUFFER_CAPACITY);
   serialize_response_metadata(res, metadata_str);
 
   size_t metadata_len = strlen(metadata_str);
@@ -124,10 +124,9 @@ void send_response(int client_sock, HttpResponse *res) {
   free(metadata_str);
 
   if (res->body.type == BODY_BUFFER) {
-    size_t body_len = res->body.length;
-
     if (!res->headers_only) {
       log_debug("Sending body: %s", res->body.buffer_data);
+      size_t body_len = res->body.length;
       send_all(client_sock, res->body.buffer_data, &body_len);
     }
     return;
