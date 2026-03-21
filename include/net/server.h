@@ -1,6 +1,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include "core/worker_pool.h"
 typedef enum {
   SRV_OK = 0,
   SRV_AGAIN,
@@ -14,6 +15,6 @@ typedef enum {
 } ServerError;
 
 void listen_on(char *, char *);
-void handle_incoming_connection(int);
+void handle_incoming_connection(int, WorkerContext *);
 
 #endif
