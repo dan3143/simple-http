@@ -16,7 +16,7 @@ ServerConfig config = {.host = "0.0.0.0",
 
 void processArgs(int argc, char **argv) {
   char c;
-  while ((c = getopt(argc, argv, "h:p:d:vw:")) != -1) {
+  while ((c = getopt(argc, argv, "h:p:d:vw:q")) != -1) {
     switch (c) {
     case 'h':
       strncpy(config.host, optarg, INET6_ADDRSTRLEN);
@@ -32,6 +32,9 @@ void processArgs(int argc, char **argv) {
       break;
     case 'w':
       config.workers = atoi(optarg);
+      break;
+    case 'q':
+      log_set_quiet(true);
       break;
     }
   }
