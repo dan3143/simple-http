@@ -10,6 +10,12 @@ void *worker(void *arg) {
   WorkerArgs *args = (WorkerArgs *)arg;
   JobQueue *queue = args->queue;
   free(args);
+
+  WorkerContext ctx;
+  ctx.req_buffer = malloc(REQ_BUF_SIZE);
+  ctx.res_body_buffer = malloc(RES_BODY_SIZE);
+  ctx.res_header_buffer = malloc(RES_HEADER_SIZE);
+
   for (;;) {
 
     pthread_mutex_lock(&queue->mutex);
@@ -20,7 +26,7 @@ void *worker(void *arg) {
     int client_sock = dequeue_job(queue);
     pthread_mutex_unlock(&queue->mutex);
 
-    handle_incoming_connection(client_sock);
+    handle_incoming_connection(client_sock, &ctx);
   }
 }
 

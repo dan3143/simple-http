@@ -20,7 +20,6 @@
 #include <unistd.h>
 
 #define BACKLOG 1024
-#define BUFFER_CAPACITY 16384
 
 extern ServerConfig config;
 
@@ -66,26 +65,12 @@ int init_server_sock(char *ipstr, char *port) {
   return server_sockfd;
 }
 
-char *allocate_buffer(HttpParser *handler) {
-  char *buffer = malloc(BUFFER_CAPACITY);
-
-  if (!buffer) {
-    log_error("Failed allocating %d bytes");
-    handler->err = SRV_ERR_IO;
-    return NULL;
-  }
-
-  init_parser(handler, buffer);
-  return buffer;
-}
-
 int parse_request(int client_sock, HttpParser *parser) {
-  log_debug("Parsing request");
   while (1) {
     int received_bytes;
     log_debug("Receiving data...");
     received_bytes = recv(client_sock, parser->buffer + parser->buffer_len,
-                          BUFFER_CAPACITY - parser->buffer_len, 0);
+                          REQ_BUF_SIZE - parser->buffer_len, 0);
 
     if (received_bytes < 0) {
       log_error("Error while receiving: %s", strerror(errno));
@@ -98,7 +83,7 @@ int parse_request(int client_sock, HttpParser *parser) {
       return SRV_ERR_CONN_RST;
     }
 
-    if (received_bytes + parser->buffer_len >= BUFFER_CAPACITY - 1) {
+    if (received_bytes + parser->buffer_len >= REQ_BUF_SIZE - 1) {
       log_error("Not enough space in buffer");
       parser->err = SRV_ERR_OVERFLOW;
       return -1;
@@ -116,14 +101,12 @@ int parse_request(int client_sock, HttpParser *parser) {
   return -1;
 }
 
-void send_response(int client_sock, HttpResponse *res) {
-  char *metadata_str = malloc(BUFFER_CAPACITY);
-  serialize_response_metadata(res, metadata_str);
+void send_response(int client_sock, HttpResponse *res, WorkerContext *ctx) {
+  serialize_response_metadata(res, ctx->res_header_buffer);
 
-  size_t metadata_len = strlen(metadata_str);
+  size_t metadata_len = strlen(ctx->res_header_buffer);
 
-  send_all(client_sock, metadata_str, &metadata_len);
-  free(metadata_str);
+  send_all(client_sock, ctx->res_header_buffer, &metadata_len);
 
   if (res->body.type == BODY_BUFFER) {
     if (res->headers_only)
@@ -152,13 +135,15 @@ void send_response(int client_sock, HttpResponse *res) {
   }
 }
 
-void handle_incoming_connection(int client_sock) {
+void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
 
   struct sockaddr_storage addr;
   char ipstr[INET6_ADDRSTRLEN];
   int port;
   socklen_t len;
-  HttpParser handler;
+  HttpParser parser;
+  HttpResponse res;
+  ServerError err;
 
   len = sizeof(addr);
   getpeername(client_sock, (struct sockaddr *)&addr, &len);
@@ -166,27 +151,22 @@ void handle_incoming_connection(int client_sock) {
   port = get_port((struct sockaddr *)&addr);
   log_debug("Accepted connection from %s:%d", ipstr, port);
 
-  if (!allocate_buffer(&handler)) {
-    goto cleanup_socket;
-  }
-
-  ServerError err = parse_request(client_sock, &handler);
+  init_parser(&parser, ctx->req_buffer);
+  err = parse_request(client_sock, &parser);
 
   if (err == SRV_ERR_CONN_RST) {
-    goto cleanup_parser;
+    goto cleanup;
   }
-  HttpResponse *res = init_http_response();
-  make_response(&handler, res);
-  send_response(client_sock, res);
 
-  log_info("%s -- \"%s %s %s\" - %d %s", ipstr, handler.req.method_name,
-           handler.req.path, handler.req.http_version, res->status_code,
-           res->status_text);
+  init_http_response(&res, ctx->res_body_buffer);
+  make_response(&parser, &res);
 
-  free_http_response(res);
-cleanup_parser:
-  free(handler.buffer);
-cleanup_socket:
+  send_response(client_sock, &res, ctx);
+
+  log_info("%s -- \"%s %s %s\" - %d %s", ipstr, parser.req.method_name,
+           parser.req.path, parser.req.http_version, res.status_code,
+           res.status_text);
+cleanup:
   close(client_sock);
 }
 

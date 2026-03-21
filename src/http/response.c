@@ -1,6 +1,7 @@
 #include "http/response.h"
 #include "core/log.h"
 #include "core/strings.h"
+#include "core/worker_pool.h"
 #include "http/parser.h"
 #include "misc/string_builder.h"
 #include "misc/util.h"
@@ -20,17 +21,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define RESPONSE_BUFFER_SIZE 4096
-
 extern ServerConfig config;
 
-HttpResponse *init_http_response() {
-  HttpResponse *res = malloc(sizeof(HttpResponse));
+void init_http_response(HttpResponse *res, char *res_buf) {
   res->header_list.header_count = 0;
   res->status_code = HTTP_OK;
   res->headers_only = false;
   res->status_text = "OK";
-  return res;
+  res->body.buffer_data = res_buf;
 }
 
 void free_http_response(HttpResponse *res) {
@@ -71,22 +69,16 @@ void serialize_response_metadata(HttpResponse *res, char *out) {
 }
 
 void make_error_response(HttpCode code, HttpResponse *res) {
-  size_t body_len = RESPONSE_BUFFER_SIZE;
-  char *body_data = malloc(body_len);
-  HttpBody body;
-
   const char *status_text = http_code_to_text(code);
   const char *status_desc = http_code_to_description(code);
 
-  snprintf(body_data, body_len, ERROR_PAGE_TEMPLATE, code, status_text, code,
-           status_text, status_desc);
+  snprintf(res->body.buffer_data, RES_BODY_SIZE, ERROR_PAGE_TEMPLATE, code,
+           status_text, code, status_text, status_desc);
 
-  body.type = BODY_BUFFER;
-  body.buffer_data = body_data;
-  body.length = strlen(body.buffer_data);
+  res->body.type = BODY_BUFFER;
+  res->body.length = strlen(res->body.buffer_data);
   res->status_code = code;
   res->status_text = status_text;
-  res->body = body;
 }
 
 void make_file_response(char *path, HttpResponse *out_res) {
