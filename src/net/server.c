@@ -19,7 +19,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define BACKLOG 10
+#define BACKLOG 1024
 #define BUFFER_CAPACITY 16384
 
 extern ServerConfig config;
