@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -g -Iinclude
+CFLAGS = -Wall -g -Iinclude -lpthread
 
 TARGET_NAME = simple-http
 SRC_DIR = src
