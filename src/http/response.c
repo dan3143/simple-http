@@ -31,18 +31,6 @@ void init_http_response(HttpResponse *res, char *res_buf) {
   res->body.buffer_data = res_buf;
 }
 
-void free_http_response(HttpResponse *res) {
-  res->header_list.header_count = 0;
-  res->body.length = 0;
-  if (res->body.type == BODY_BUFFER) {
-    free(res->body.buffer_data);
-  }
-  if (res->body.type == BODY_FILE) {
-    close(res->body.fd);
-  }
-  free(res);
-}
-
 void serialize_response_metadata(HttpResponse *res, char *out) {
 
   StringBuilder sb;

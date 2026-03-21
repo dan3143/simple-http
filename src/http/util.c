@@ -1,5 +1,5 @@
-#include "core/log.h"
 #include "http/util.h"
+#include "core/log.h"
 #include "misc/util.h"
 #include "net/server.h"
 #include <asm-generic/errno-base.h>
@@ -33,7 +33,7 @@ void init_http_body(HttpBody *body) {
 const char *lookup_mime_type(const char *path) {
   const char *ext = get_file_extension(path);
   if (!ext)
-    return "application/octect-stream";
+    return "application/octet-stream";
 
   size_t count = sizeof(mime_table) / sizeof(mime_table[0]);
 
@@ -42,7 +42,7 @@ const char *lookup_mime_type(const char *path) {
       return mime_table[i].type;
   }
 
-  return "application/octect-stream";
+  return "application/octet-stream";
 }
 
 ServerError normalize_path(const char *path, const char *root_path,

@@ -22,7 +22,7 @@ void processArgs(int argc, char **argv) {
       strncpy(config.host, optarg, INET6_ADDRSTRLEN);
       break;
     case 'p':
-      strncpy(config.port, optarg, 5);
+      snprintf(config.port, sizeof(config.port), "%s", optarg);
       break;
     case 'd':
       strncpy(config.root_dir, optarg, PATH_MAX);

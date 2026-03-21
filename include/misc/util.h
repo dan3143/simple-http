@@ -16,7 +16,7 @@ void print_hex_bytes(char *, size_t);
 
 typedef struct {
   char host[INET6_ADDRSTRLEN];
-  char port[5];
+  char port[6];
   char root_dir[PATH_MAX];
   int log_level;
   int workers;

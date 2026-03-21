@@ -28,7 +28,7 @@ void sb_free(StringBuilder *sb) {
 
 int sb_grow(StringBuilder *sb, size_t min_capacity) {
   int new_capacity = sb->capacity;
-  if (new_capacity < min_capacity) {
+  while (new_capacity < min_capacity) {
     new_capacity *= 2;
   }
   char *new_data = realloc(sb->data, new_capacity);
