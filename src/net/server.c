@@ -129,7 +129,6 @@ void send_response(int client_sock, HttpResponse *res) {
 
     size_t body_len = res->body.length;
     send_all(client_sock, res->body.buffer_data, &body_len);
-
     return;
   }
 
@@ -139,7 +138,6 @@ void send_response(int client_sock, HttpResponse *res) {
     size_t remaining = res->body.length;
 
     if (res->headers_only) {
-      close(res->body.fd);
       return;
     }
 
@@ -149,8 +147,6 @@ void send_response(int client_sock, HttpResponse *res) {
         break;
       remaining -= sent;
     }
-
-    close(res->body.fd);
   }
 }
 
@@ -161,7 +157,7 @@ void handle_incoming_connection(int client_sock) {
   int port;
   socklen_t len;
   HttpParser handler;
-  HttpResponse res;
+  HttpResponse *res = init_http_response();
 
   len = sizeof(addr);
   getpeername(client_sock, (struct sockaddr *)&addr, &len);
@@ -174,13 +170,14 @@ void handle_incoming_connection(int client_sock) {
   }
 
   parse_request(client_sock, &handler);
-  make_response(&handler, &res);
-  send_response(client_sock, &res);
+  make_response(&handler, res);
+  send_response(client_sock, res);
 
   log_info("%s -- \"%s %s %s\" - %d %s", ipstr, handler.req.method_name,
-           handler.req.path, handler.req.http_version, res.status_code,
-           res.status_text);
+           handler.req.path, handler.req.http_version, res->status_code,
+           res->status_text);
 
+  free_http_response(res);
   free(handler.buffer);
 cleanup_socket:
   close(client_sock);

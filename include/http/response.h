@@ -17,5 +17,7 @@ typedef struct {
 
 void make_response(HttpParser *, HttpResponse *);
 void serialize_response_metadata(HttpResponse *, char *);
+HttpResponse *init_http_response();
+void free_http_response(HttpResponse *);
 
 #endif
