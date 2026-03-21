@@ -70,7 +70,7 @@ void parse_first_line(HttpHandler *status) {
   }
 
   *first_space = '\0';
-  status->req.method = line_start;
+  status->req.method = str_to_http_method(line_start);
 
   char *second_space = strchr(first_space + 1, ' ');
   if (!second_space) {

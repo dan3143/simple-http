@@ -22,11 +22,11 @@
 
 extern ServerConfig config;
 
-void init_http_response(HttpResponse *res, HttpCode code, const char *status) {
+void init_http_response(HttpResponse *res) {
   res->header_list.header_count = 0;
-  res->status_code = code;
-  res->status_text = status;
+  res->status_code = HTTP_OK;
   res->headers_only = false;
+  res->status_text = "OK";
 }
 
 void serialize_response_metadata(HttpResponse *res, char *out) {
@@ -68,7 +68,8 @@ void make_error_response(HttpCode code, HttpResponse *res) {
   body.type = BODY_BUFFER;
   body.buffer_data = body_data;
   body.length = strlen(body.buffer_data);
-  init_http_response(res, code, status_text);
+  res->status_code = code;
+  res->status_text = status_text;
   res->body = body;
 }
 
@@ -95,8 +96,6 @@ void make_file_response(char *path, HttpResponse *out_res) {
 
   HttpBody body;
   init_http_body(&body);
-  init_http_response(out_res, HTTP_OK, "OK");
-
   char content_length_str[MAX_HEADER_VALUE];
   snprintf(content_length_str, MAX_HEADER_VALUE, "%zu", stat_buf.st_size);
   const char *mime_type = lookup_mime_type(path);
@@ -112,6 +111,12 @@ void make_file_response(char *path, HttpResponse *out_res) {
 
 void make_response(HttpHandler *handler, HttpResponse *out_res) {
   HttpRequest req = handler->req;
+
+  init_http_response(out_res);
+
+  if (req.method == HTTP_HEAD) {
+    out_res->headers_only = true;
+  }
 
   if (handler->err != SRV_OK) {
     make_error_response(srv_err_to_http_err(handler->err), out_res);
@@ -131,8 +136,4 @@ void make_response(HttpHandler *handler, HttpResponse *out_res) {
   }
 
   make_file_response(normalized_path, out_res);
-
-  if (strcmp(req.method, "HEAD") == 0) {
-    out_res->headers_only = true;
-  }
 }

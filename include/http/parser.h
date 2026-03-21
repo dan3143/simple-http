@@ -10,7 +10,7 @@
 #define MAX_HTTP_VERSION_LEN 8
 
 typedef struct {
-  char *method;
+  HttpMethod method;
   char *path;
   char *http_version;
   HttpHeaderList header_list;

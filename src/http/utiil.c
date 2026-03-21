@@ -23,7 +23,7 @@ const MimeEntry mime_table[] = {{"html", "text/html; charset=utf-8"},
                                 {"svg", "image/svg+xml"},
                                 {"txt", "text/plain; charset=utf-8"}};
 
-const char *supported_methods[8] = {"GET", "HEAD"};
+const HttpMethodSet SUPPORTED_METHODS = HTTP_GET | HTTP_HEAD;
 
 void init_http_body(HttpBody *body) {
   body->type = BODY_NONE;
@@ -105,12 +105,34 @@ HttpHeader *get_header(HttpHeaderList *list, const char *name) {
 
 bool is_http_error(HttpCode code) { return code >= 400 && code < 600; }
 
-bool is_method_supported(char *method) {
-  size_t n = sizeof(supported_methods) / sizeof(supported_methods[0]);
-  for (size_t i = 0; i < n; i++) {
-    if (strcmp(method, supported_methods[i]) == 0) {
-      return true;
+bool is_method_supported(HttpMethod method) {
+  return method & SUPPORTED_METHODS;
+}
+
+HttpMethod str_to_http_method(char *str) {
+  switch (str[0]) {
+  case 'G':
+    return !strcmp(str, "GET") ? HTTP_GET : HTTP_UNKNOWN_METHOD;
+  case 'H':
+    return !strcmp(str, "HEAD") ? HTTP_HEAD : HTTP_UNKNOWN_METHOD;
+  case 'P':
+    switch (str[1]) {
+    case 'O':
+      return !strcmp(str, "POST") ? HTTP_POST : HTTP_UNKNOWN_METHOD;
+    case 'U':
+      return !strcmp(str, "PUT") ? HTTP_PUT : HTTP_UNKNOWN_METHOD;
+    case 'A':
+      return !strcmp(str, "PATCH") ? HTTP_PATCH : HTTP_UNKNOWN_METHOD;
     }
+    return HTTP_UNKNOWN_METHOD;
+  case 'D':
+    return !strcmp(str, "DELETE") ? HTTP_DELETE : HTTP_UNKNOWN_METHOD;
+  case 'C':
+    return !strcmp(str, "CONNECT") ? HTTP_CONNECT : HTTP_UNKNOWN_METHOD;
+  case 'O':
+    return !strcmp(str, "OPTIONS") ? HTTP_OPTIONS : HTTP_UNKNOWN_METHOD;
+  case 'T':
+    return !strcmp(str, "TRACE") ? HTTP_TRACE : HTTP_UNKNOWN_METHOD;
   }
-  return false;
+  return HTTP_UNKNOWN_METHOD;
 }

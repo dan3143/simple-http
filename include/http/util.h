@@ -1,6 +1,7 @@
 #include "net/server.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifndef HTTP_H
 #define HTTP_H
@@ -29,6 +30,21 @@ typedef enum {
   HTTP_NOT_IMPLEMENTED = 501,
   HTTP_VERSION_NOT_SUPPORTED = 505,
 } HttpCode;
+
+typedef enum {
+  HTTP_UNKNOWN_METHOD = 0,
+  HTTP_GET = 1 << 0,
+  HTTP_HEAD = 1 << 1,
+  HTTP_POST = 1 << 2,
+  HTTP_PUT = 1 << 3,
+  HTTP_DELETE = 1 << 4,
+  HTTP_CONNECT = 1 << 5,
+  HTTP_OPTIONS = 1 << 6,
+  HTTP_TRACE = 1 << 7,
+  HTTP_PATCH = 1 << 8,
+} HttpMethod;
+
+typedef uint32_t HttpMethodSet;
 
 typedef struct {
   HttpCode code;
@@ -66,7 +82,8 @@ bool add_header(HttpHeaderList *, const char *, const char *);
 HttpHeader *get_header(HttpHeaderList *, const char *);
 void init_http_body(HttpBody *);
 bool is_http_error(HttpCode);
-bool is_method_supported(char *);
+bool is_method_supported(HttpMethod);
+HttpMethod str_to_http_method(char *);
 
 static const char *ERROR_PAGE_TEMPLATE =
     "<!DOCTYPE html>\n"
