@@ -5,14 +5,18 @@
 #include <bits/getopt_core.h>
 #include <linux/limits.h>
 #include <netinet/in.h>
+#include <stdlib.h>
 #include <string.h>
 
-ServerConfig config = {
-    .host = "0.0.0.0", .port = "8080", .root_dir = "./", .log_level = LOG_INFO};
+ServerConfig config = {.host = "0.0.0.0",
+                       .port = "8080",
+                       .root_dir = "./",
+                       .log_level = LOG_INFO,
+                       .workers = 8};
 
 void processArgs(int argc, char **argv) {
   char c;
-  while ((c = getopt(argc, argv, "h:p:d:v")) != -1) {
+  while ((c = getopt(argc, argv, "h:p:d:vw:")) != -1) {
     switch (c) {
     case 'h':
       strncpy(config.host, optarg, INET6_ADDRSTRLEN);
@@ -25,6 +29,9 @@ void processArgs(int argc, char **argv) {
       break;
     case 'v':
       config.log_level = LOG_DEBUG;
+      break;
+    case 'w':
+      config.workers = atoi(optarg);
       break;
     }
   }

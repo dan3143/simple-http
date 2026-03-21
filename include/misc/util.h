@@ -19,6 +19,7 @@ typedef struct {
   char port[5];
   char root_dir[PATH_MAX];
   int log_level;
+  int workers;
 } ServerConfig;
 
 #endif
