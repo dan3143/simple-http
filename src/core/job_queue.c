@@ -1,5 +1,4 @@
 #include "core/job_queue.h"
-#include <bits/pthreadtypes.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -50,10 +49,10 @@ void enqueue_job(int client_sock, JobQueue *queue) {
   pthread_mutex_unlock(&queue->mutex);
 }
 
-int dequeue(JobQueue *queue) {
+int dequeue_job(JobQueue *queue) {
   Job *job = queue->head;
   if (job == NULL)
-    return NULL;
+    return 0;
   int sockfd = job->client_sock;
   queue->head = job->next;
   if (queue->head == NULL) {
@@ -61,6 +60,7 @@ int dequeue(JobQueue *queue) {
   }
   job->next = NULL;
   free(job);
+  queue->count--;
   return sockfd;
 }
 

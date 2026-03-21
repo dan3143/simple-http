@@ -13,5 +13,6 @@ typedef enum {
 } ServerError;
 
 void listen_on(char *, char *);
+void handle_incoming_connection(int);
 
 #endif

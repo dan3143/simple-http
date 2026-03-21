@@ -2,6 +2,7 @@
 #define JOB_QUEUE_H
 
 #include <pthread.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct job {
@@ -25,5 +26,6 @@ JobQueue *init_job_queue();
 int dequeue_job(JobQueue *);
 void enqueue_job(int, JobQueue *);
 void free_job_queue(JobQueue *);
+bool queue_empty(JobQueue *);
 
 #endif

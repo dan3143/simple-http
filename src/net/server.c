@@ -1,5 +1,7 @@
 #include "net/server.h"
+#include "core/job_queue.h"
 #include "core/log.h"
+#include "core/worker_pool.h"
 #include "http/parser.h"
 #include "http/response.h"
 #include "misc/util.h"
@@ -195,6 +197,8 @@ void listen_on_server_sock(int server_sock) {
   socklen_t sin_size;
   int client_sock;
 
+  WorkerPool *pool = init_worker_pool(2 * 4);
+  log_debug("Created pool of 8 workers");
   while (1) {
 
     sin_size = sizeof client_addr;
@@ -206,7 +210,8 @@ void listen_on_server_sock(int server_sock) {
       continue;
     }
 
-    handle_incoming_connection(client_sock);
+    log_debug("Adding to queue...");
+    enqueue_job(client_sock, pool->queue);
   }
 }
 
