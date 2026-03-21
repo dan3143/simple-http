@@ -26,6 +26,7 @@ void init_http_response(HttpResponse *res, HttpCode code, const char *status) {
   res->header_list.header_count = 0;
   res->status_code = code;
   res->status_text = status;
+  res->headers_only = false;
 }
 
 void serialize_response_metadata(HttpResponse *res, char *out) {
@@ -130,4 +131,8 @@ void make_response(HttpHandler *handler, HttpResponse *out_res) {
   }
 
   make_file_response(normalized_path, out_res);
+
+  if (strcmp(req.method, "HEAD") == 0) {
+    out_res->headers_only = true;
+  }
 }

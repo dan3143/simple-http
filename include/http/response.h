@@ -12,6 +12,7 @@ typedef struct {
   const char *status_text;
   HttpHeaderList header_list;
   HttpBody body;
+  bool headers_only;
 } HttpResponse;
 
 void send_error_response(int, HttpCode);

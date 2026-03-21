@@ -103,7 +103,6 @@ int parse_request(int client_sock, HttpHandler *handler) {
     }
 
     handler->buffer_len += received_bytes;
-    // handler->buffer[handler->buffer_len] = '\0';
 
     parse_http(handler);
 
@@ -126,21 +125,27 @@ void send_response(int client_sock, HttpResponse *res) {
 
   if (res->body.type == BODY_BUFFER) {
     size_t body_len = res->body.length;
-    log_debug("Sending body: %s", res->body.buffer_data);
-    send_all(client_sock, res->body.buffer_data, &body_len);
+
+    if (!res->headers_only) {
+      log_debug("Sending body: %s", res->body.buffer_data);
+      send_all(client_sock, res->body.buffer_data, &body_len);
+    }
     return;
   }
 
   if (res->body.type == BODY_FILE) {
-    log_debug("Sending file");
+
     off_t offset = 0;
     size_t remaining = res->body.length;
 
-    while (remaining > 0) {
-      ssize_t sent = sendfile(client_sock, res->body.fd, &offset, remaining);
-      if (sent <= 0)
-        break;
-      remaining -= sent;
+    if (!res->headers_only) {
+      log_debug("Sending file");
+      while (remaining > 0) {
+        ssize_t sent = sendfile(client_sock, res->body.fd, &offset, remaining);
+        if (sent <= 0)
+          break;
+        remaining -= sent;
+      }
     }
 
     close(res->body.fd);
