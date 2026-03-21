@@ -15,7 +15,7 @@ typedef struct {
   bool headers_only;
 } HttpResponse;
 
-void make_response(HttpHandler *, HttpResponse *);
+void make_response(HttpParser *, HttpResponse *);
 void serialize_response_metadata(HttpResponse *, char *);
 
 #endif

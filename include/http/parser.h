@@ -11,6 +11,7 @@
 
 typedef struct {
   HttpMethod method;
+  char *method_name;
   char *path;
   char *http_version;
   HttpHeaderList header_list;
@@ -36,10 +37,10 @@ typedef struct {
   size_t offset;
   size_t status_line_end_pos;
   char *header_end_pos;
-} HttpHandler;
+} HttpParser;
 
 void init_http_request(HttpRequest *);
-void init_parser(HttpHandler *, char *);
-void parse_http(HttpHandler *);
+void init_parser(HttpParser *, char *);
+void parse_http(HttpParser *);
 
 #endif

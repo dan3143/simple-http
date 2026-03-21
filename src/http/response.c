@@ -109,7 +109,7 @@ void make_file_response(char *path, HttpResponse *out_res) {
   out_res->body = body;
 }
 
-void make_response(HttpHandler *handler, HttpResponse *out_res) {
+void make_response(HttpParser *handler, HttpResponse *out_res) {
   HttpRequest req = handler->req;
 
   init_http_response(out_res);

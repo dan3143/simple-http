@@ -61,7 +61,7 @@ int init_server_sock(char *ipstr, char *port) {
   return server_sockfd;
 }
 
-char *allocate_buffer(HttpHandler *handler) {
+char *allocate_buffer(HttpParser *handler) {
   char *buffer = malloc(BUFFER_CAPACITY);
 
   if (!buffer) {
@@ -74,41 +74,41 @@ char *allocate_buffer(HttpHandler *handler) {
   return buffer;
 }
 
-int parse_request(int client_sock, HttpHandler *handler) {
+int parse_request(int client_sock, HttpParser *parser) {
   log_debug("Parsing request");
   while (1) {
     int received_bytes;
     log_debug("Receiving data...");
-    received_bytes = recv(client_sock, handler->buffer + handler->buffer_len,
-                          BUFFER_CAPACITY - handler->buffer_len, 0);
+    received_bytes = recv(client_sock, parser->buffer + parser->buffer_len,
+                          BUFFER_CAPACITY - parser->buffer_len, 0);
 
     if (received_bytes < 0) {
       log_error("Error while receiving: %s", strerror(errno));
-      handler->err = SRV_ERR_INTERNAL;
+      parser->err = SRV_ERR_INTERNAL;
       return -1;
     }
 
     if (received_bytes == 0) {
       log_error("Client closed the connection");
-      if (handler->parsing_state != PARSING_COMPLETE) {
-        handler->err = SRV_ERR_BAD_REQUEST;
+      if (parser->parsing_state != PARSING_COMPLETE) {
+        parser->err = SRV_ERR_BAD_REQUEST;
       }
       return -1;
     }
 
-    if (received_bytes + handler->buffer_len >= BUFFER_CAPACITY - 1) {
+    if (received_bytes + parser->buffer_len >= BUFFER_CAPACITY - 1) {
       log_error("Not enough space in buffer");
-      handler->err = SRV_ERR_OVERFLOW;
+      parser->err = SRV_ERR_OVERFLOW;
       return -1;
     }
 
-    handler->buffer_len += received_bytes;
+    parser->buffer_len += received_bytes;
 
-    parse_http(handler);
+    parse_http(parser);
 
-    if (handler->parsing_state == PARSING_ERROR)
+    if (parser->parsing_state == PARSING_ERROR)
       return -1;
-    if (handler->parsing_state == PARSING_COMPLETE)
+    if (parser->parsing_state == PARSING_COMPLETE)
       return 0;
   }
   return -1;
@@ -160,7 +160,7 @@ void handle_incoming_connection(int client_sock) {
   char ipstr[INET6_ADDRSTRLEN];
   int port;
   socklen_t len;
-  HttpHandler handler;
+  HttpParser handler;
   HttpResponse res;
 
   len = sizeof(addr);
@@ -176,6 +176,10 @@ void handle_incoming_connection(int client_sock) {
   parse_request(client_sock, &handler);
   make_response(&handler, &res);
   send_response(client_sock, &res);
+
+  log_info("%s -- \"%s %s %s\" - %d %s", ipstr, handler.req.method_name,
+           handler.req.path, handler.req.http_version, res.status_code,
+           res.status_text);
 
   free(handler.buffer);
 cleanup_socket:

@@ -11,7 +11,7 @@
 
 void init_http_request(HttpRequest *req) { req->header_list.header_count = 0; }
 
-void init_parser(HttpHandler *status, char *buffer) {
+void init_parser(HttpParser *status, char *buffer) {
   status->buffer = buffer;
   status->buffer_len = 0;
   status->offset = 0;
@@ -21,7 +21,7 @@ void init_parser(HttpHandler *status, char *buffer) {
   status->err = SRV_OK;
 }
 
-void detect_header_end(HttpHandler *status) {
+void detect_header_end(HttpParser *status) {
   log_debug("Looking for end of headers");
   char *start = status->buffer;
 
@@ -51,7 +51,7 @@ void detect_header_end(HttpHandler *status) {
   log_debug("Have not found end of header section");
 }
 
-void parse_first_line(HttpHandler *status) {
+void parse_first_line(HttpParser *status) {
   log_debug("Parsing the first line");
   char *line_start = status->buffer;
   char *line_end = strchr(status->buffer, '\n');
@@ -70,6 +70,7 @@ void parse_first_line(HttpHandler *status) {
   }
 
   *first_space = '\0';
+  status->req.method_name = line_start;
   status->req.method = str_to_http_method(line_start);
 
   char *second_space = strchr(first_space + 1, ' ');
@@ -86,7 +87,7 @@ void parse_first_line(HttpHandler *status) {
   status->status_line_end_pos = line_len + 1;
 }
 
-void parse_headers(HttpHandler *status) {
+void parse_headers(HttpParser *status) {
   char *line_start = status->buffer + status->status_line_end_pos;
 
   log_debug("Start parsing headers");
@@ -135,7 +136,7 @@ void parse_headers(HttpHandler *status) {
   log_debug("Finished parsing headers.");
 }
 
-void parse_metadata(HttpHandler *status) {
+void parse_metadata(HttpParser *status) {
   init_http_request(&status->req);
   parse_first_line(status);
   if (status->parsing_state == PARSING_ERROR)
@@ -143,7 +144,7 @@ void parse_metadata(HttpHandler *status) {
   parse_headers(status);
 }
 
-void check_body(HttpHandler *status) {
+void check_body(HttpParser *status) {
   log_debug("Checking if there is a body");
   HttpHeader *header = get_header(&status->req.header_list, "Content-Length");
   if (!header) {
@@ -166,7 +167,7 @@ void check_body(HttpHandler *status) {
   status->parsing_state = PARSING_BODY;
 }
 
-void parse_body(HttpHandler *status) {
+void parse_body(HttpParser *status) {
   log_debug("Parsing body");
   size_t metadata_size = status->header_end_pos - status->buffer;
   if (status->buffer_len < metadata_size + status->req.body.length) {
@@ -182,7 +183,7 @@ void parse_body(HttpHandler *status) {
   log_debug("Body complete:\n%s", status->req.body.buffer_data);
 }
 
-void parse_http(HttpHandler *status) {
+void parse_http(HttpParser *status) {
   log_debug("Parsing from %zu to %zu", status->offset, status->buffer_len);
   while (1) {
 
