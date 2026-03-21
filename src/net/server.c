@@ -124,11 +124,12 @@ void send_response(int client_sock, HttpResponse *res) {
   free(metadata_str);
 
   if (res->body.type == BODY_BUFFER) {
-    if (!res->headers_only) {
-      log_debug("Sending body: %s", res->body.buffer_data);
-      size_t body_len = res->body.length;
-      send_all(client_sock, res->body.buffer_data, &body_len);
-    }
+    if (res->headers_only)
+      return;
+
+    size_t body_len = res->body.length;
+    send_all(client_sock, res->body.buffer_data, &body_len);
+
     return;
   }
 
@@ -137,14 +138,16 @@ void send_response(int client_sock, HttpResponse *res) {
     off_t offset = 0;
     size_t remaining = res->body.length;
 
-    if (!res->headers_only) {
-      log_debug("Sending file");
-      while (remaining > 0) {
-        ssize_t sent = sendfile(client_sock, res->body.fd, &offset, remaining);
-        if (sent <= 0)
-          break;
-        remaining -= sent;
-      }
+    if (res->headers_only) {
+      close(res->body.fd);
+      return;
+    }
+
+    while (remaining > 0) {
+      ssize_t sent = sendfile(client_sock, res->body.fd, &offset, remaining);
+      if (sent <= 0)
+        break;
+      remaining -= sent;
     }
 
     close(res->body.fd);
