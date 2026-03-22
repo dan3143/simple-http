@@ -11,14 +11,13 @@
 
 void init_http_request(HttpRequest *req) { req->header_list.header_count = 0; }
 
-void init_parser(HttpParser *status, char *buffer) {
-  status->buffer = buffer;
-  status->buffer_len = 0;
-  status->offset = 0;
-  status->parsing_state = PARSING_HEADER_END;
-  init_http_request(&status->req);
-  init_http_body(&status->req.body);
-  status->err = SRV_OK;
+void init_parser(HttpParser *parser) {
+  parser->buffer_len = 0;
+  parser->offset = 0;
+  parser->parsing_state = PARSING_HEADER_END;
+  init_http_request(&parser->req);
+  init_http_body(&parser->req.body);
+  parser->err = SRV_OK;
 }
 
 void detect_header_end(HttpParser *status) {
@@ -177,7 +176,6 @@ void parse_body(HttpParser *status) {
     return;
   }
   status->offset = metadata_size + status->req.body.length + 1;
-  status->buffer[status->offset] = '\0';
   status->err = SRV_OK;
   status->parsing_state = PARSING_COMPLETE;
   log_debug("Body complete:\n%s", status->req.body.buffer_data);
@@ -213,4 +211,12 @@ void parse_http(HttpParser *status) {
       return;
     }
   }
+}
+
+bool should_keepalive(HttpRequest *req) {
+  HttpHeader *h = get_header(&req->header_list, "Connection");
+  if (!h) {
+    return strcmp(req->http_version, "HTTP/1.1") == 0;
+  }
+  return strcasecmp(h->value, "close") != 0;
 }
