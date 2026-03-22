@@ -5,6 +5,7 @@
 #include <bits/getopt_core.h>
 #include <linux/limits.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -41,6 +42,7 @@ void processArgs(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
+  signal(SIGPIPE, SIG_IGN);
   processArgs(argc, argv);
   log_set_level(config.log_level);
   listen_on(config.host, config.port);

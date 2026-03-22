@@ -73,20 +73,8 @@ int parse_request(int client_sock, HttpParser *parser) {
     received_bytes = recv(client_sock, parser->buffer + parser->buffer_len,
                           REQ_BUF_SIZE - parser->buffer_len, 0);
 
-    if (received_bytes < 0) {
-      log_error("Error while receiving: %s", strerror(errno));
-      // We are using non-blocking sockets, so this means
-      // there was a timeout
-      if (errno == EAGAIN) {
-        return SRV_ERR_CONN_CLOSED;
-      }
-
-      parser->err = SRV_ERR_IO;
-      return -1;
-    }
-
-    if (received_bytes == 0) {
-      log_debug("Client closed the connection");
+    if (received_bytes <= 0) {
+      log_debug("Could not send. Closing connection");
       return SRV_ERR_CONN_CLOSED;
     }
 
@@ -108,7 +96,8 @@ int parse_request(int client_sock, HttpParser *parser) {
   return -1;
 }
 
-void send_response(int client_sock, HttpResponse *res, WorkerContext *ctx) {
+ServerError send_response(int client_sock, HttpResponse *res,
+                          WorkerContext *ctx) {
   serialize_response_metadata(res, ctx->res_header_buffer);
 
   size_t metadata_len = strlen(ctx->res_header_buffer);
@@ -117,29 +106,30 @@ void send_response(int client_sock, HttpResponse *res, WorkerContext *ctx) {
 
   if (res->body.type == BODY_BUFFER) {
     if (res->headers_only)
-      return;
+      return SRV_OK;
 
     size_t body_len = res->body.length;
-    send_all(client_sock, res->body.buffer_data, &body_len);
-    return;
+    if (send_all(client_sock, res->body.buffer_data, &body_len) < 0) {
+      return SRV_ERR_CONN_CLOSED;
+    }
   }
-
   if (res->body.type == BODY_FILE) {
 
     off_t offset = 0;
     size_t remaining = res->body.length;
 
     if (res->headers_only) {
-      return;
+      return SRV_OK;
     }
 
     while (remaining > 0) {
       ssize_t sent = sendfile(client_sock, res->body.fd, &offset, remaining);
       if (sent <= 0)
-        break;
+        return SRV_ERR_CONN_CLOSED;
       remaining -= sent;
     }
   }
+  return SRV_OK;
 }
 
 void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
@@ -161,6 +151,11 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
   init_parser(&parser);
 
   for (;;) {
+
+    if (client_sock < 0) {
+      return;
+    }
+
     ServerError err;
 
     size_t consumed = parser.offset;
@@ -171,21 +166,26 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
 
     init_parser(&parser);
     err = parse_request(client_sock, &parser);
-
     if (err == SRV_ERR_CONN_CLOSED) {
       break;
     }
 
     init_http_response(&res, ctx->res_body_buffer);
     make_response(&parser, &res);
-    send_response(client_sock, &res, ctx);
-    cleanup_response(&res);
+
+    err = send_response(client_sock, &res, ctx);
+    if (err == SRV_ERR_CONN_CLOSED) {
+      break;
+    }
+
     log_info("%s -- \"%s %s %s\" - %d %s", ipstr, parser.req.method_name,
              parser.req.path, parser.req.http_version, res.status_code,
              res.status_text);
 
     if (res.should_close)
       break;
+
+    cleanup_response(&res);
   }
 
   close(client_sock);
