@@ -79,7 +79,7 @@ int parse_request(int client_sock, HttpParser *parser) {
     }
 
     if (received_bytes == 0) {
-      log_error("Client closed the connection");
+      log_debug("Client closed the connection");
       return SRV_ERR_CONN_RST;
     }
 
@@ -141,32 +141,48 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
   char ipstr[INET6_ADDRSTRLEN];
   int port;
   socklen_t len;
-  HttpParser parser;
-  HttpResponse res;
-  ServerError err;
 
   len = sizeof(addr);
   getpeername(client_sock, (struct sockaddr *)&addr, &len);
   get_addr_str((struct sockaddr *)&addr, ipstr);
   port = get_port((struct sockaddr *)&addr);
+
   log_debug("Accepted connection from %s:%d", ipstr, port);
 
-  init_parser(&parser, ctx->req_buffer);
-  err = parse_request(client_sock, &parser);
+  HttpParser parser;
+  HttpResponse res;
 
-  if (err == SRV_ERR_CONN_RST) {
-    goto cleanup;
+  init_parser(&parser);
+
+  for (;;) {
+    ServerError err;
+
+    size_t consumed = parser.offset;
+    size_t leftover = parser.buffer_len - parser.offset;
+    if (leftover > 0) {
+      // Shift buffer so we only have unprocessed data
+      memmove(ctx->req_buffer, ctx->req_buffer + consumed, leftover);
+    }
+
+    init_parser(&parser);
+    err = parse_request(client_sock, &parser);
+
+    if (err == SRV_ERR_CONN_RST) {
+      break;
+    }
+
+    init_http_response(&res, ctx->res_body_buffer);
+    make_response(&parser, &res);
+    send_response(client_sock, &res, ctx);
+    cleanup_response(&res);
+    log_info("%s -- \"%s %s %s\" - %d %s", ipstr, parser.req.method_name,
+             parser.req.path, parser.req.http_version, res.status_code,
+             res.status_text);
+
+    if (res.should_close)
+      break;
   }
 
-  init_http_response(&res, ctx->res_body_buffer);
-  make_response(&parser, &res);
-
-  send_response(client_sock, &res, ctx);
-
-  log_info("%s -- \"%s %s %s\" - %d %s", ipstr, parser.req.method_name,
-           parser.req.path, parser.req.http_version, res.status_code,
-           res.status_text);
-cleanup:
   close(client_sock);
 }
 

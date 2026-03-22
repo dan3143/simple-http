@@ -31,6 +31,12 @@ void init_http_response(HttpResponse *res, char *res_buf) {
   res->body.buffer_data = res_buf;
 }
 
+void cleanup_response(HttpResponse *res) {
+  if (res->body.type == BODY_FILE) {
+    close(res->body.fd);
+  }
+}
+
 void serialize_response_metadata(HttpResponse *res, char *out) {
 
   StringBuilder sb;
@@ -46,8 +52,10 @@ void serialize_response_metadata(HttpResponse *res, char *out) {
     sb_appendf(&sb, "Content-Length: %d\r\n", res->body.length);
   }
 
-  if (!get_header(&res->header_list, "Connection")) {
+  if (res->should_close) {
     sb_append(&sb, "Connection: close\r\n");
+  } else {
+    sb_append(&sb, "Connection: keep-alive\r\n");
   }
 
   sb_append(&sb, "\r\n");
@@ -105,15 +113,18 @@ void make_file_response(char *path, HttpResponse *out_res) {
   out_res->body = body;
 }
 
-void make_response(HttpParser *handler, HttpResponse *out_res) {
-  HttpRequest req = handler->req;
+void make_response(HttpParser *parser, HttpResponse *out_res) {
+  HttpRequest req = parser->req;
+
+  bool keep_alive = should_keepalive(&parser->req);
+  out_res->should_close = !keep_alive;
 
   if (req.method == HTTP_HEAD) {
     out_res->headers_only = true;
   }
 
-  if (handler->err != SRV_OK) {
-    make_error_response(srv_err_to_http_err(handler->err), out_res);
+  if (parser->err != SRV_OK) {
+    make_error_response(srv_err_to_http_err(parser->err), out_res);
     return;
   }
 

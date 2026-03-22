@@ -13,11 +13,13 @@ typedef struct {
   HttpHeaderList header_list;
   HttpBody body;
   bool headers_only;
+  bool should_close;
 } HttpResponse;
 
 void make_response(HttpParser *, HttpResponse *);
 void serialize_response_metadata(HttpResponse *, char *);
 void init_http_response(HttpResponse *, char *);
 void free_http_response(HttpResponse *);
+void cleanup_response(HttpResponse *);
 
 #endif
