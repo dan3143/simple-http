@@ -6,6 +6,7 @@
 #include "http/response.h"
 #include "misc/util.h"
 #include <arpa/inet.h>
+#include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -74,13 +75,19 @@ int parse_request(int client_sock, HttpParser *parser) {
 
     if (received_bytes < 0) {
       log_error("Error while receiving: %s", strerror(errno));
-      parser->err = SRV_ERR_INTERNAL;
+      // We are using non-blocking sockets, so this means
+      // there was a timeout
+      if (errno == EAGAIN) {
+        return SRV_ERR_CONN_CLOSED;
+      }
+
+      parser->err = SRV_ERR_IO;
       return -1;
     }
 
     if (received_bytes == 0) {
       log_debug("Client closed the connection");
-      return SRV_ERR_CONN_RST;
+      return SRV_ERR_CONN_CLOSED;
     }
 
     if (received_bytes + parser->buffer_len >= REQ_BUF_SIZE - 1) {
@@ -136,7 +143,6 @@ void send_response(int client_sock, HttpResponse *res, WorkerContext *ctx) {
 }
 
 void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
-
   struct sockaddr_storage addr;
   char ipstr[INET6_ADDRSTRLEN];
   int port;
@@ -160,14 +166,13 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
     size_t consumed = parser.offset;
     size_t leftover = parser.buffer_len - parser.offset;
     if (leftover > 0) {
-      // Shift buffer so we only have unprocessed data
       memmove(ctx->req_buffer, ctx->req_buffer + consumed, leftover);
     }
 
     init_parser(&parser);
     err = parse_request(client_sock, &parser);
 
-    if (err == SRV_ERR_CONN_RST) {
+    if (err == SRV_ERR_CONN_CLOSED) {
       break;
     }
 
@@ -208,6 +213,11 @@ void listen_on_server_sock(int server_sock) {
     if (client_sock == -1) {
       log_error("Could not accept incoming connection: %s", strerror(errno));
       continue;
+    }
+
+    struct timeval tv = {.tv_sec = 15, .tv_usec = 0};
+    if (setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+      log_error("Failed to set timeout for client socket");
     }
 
     log_debug("Adding to queue...");

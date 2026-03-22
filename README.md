@@ -17,7 +17,7 @@ This is just a toy server with a lot of errors and little to no compliance with 
 ## To-do list:
 
 - [X] Multithreading
-- [ ] Persistent connections
+- [X] Persistent connections
 - [ ] Better HTTP/1.1 compliance
 - [ ] TLS support with [openssl](https://github.com/openssl/openssl)
 - [ ] Read configuration from a file

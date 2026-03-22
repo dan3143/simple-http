@@ -52,6 +52,10 @@ void serialize_response_metadata(HttpResponse *res, char *out) {
     sb_appendf(&sb, "Content-Length: %d\r\n", res->body.length);
   }
 
+  if (!get_header(&res->header_list, "Server")) {
+    sb_appendf(&sb, "Server: simple-http\r\n");
+  }
+
   if (res->should_close) {
     sb_append(&sb, "Connection: close\r\n");
   } else {
@@ -140,5 +144,6 @@ void make_response(HttpParser *parser, HttpResponse *out_res) {
     return;
   }
 
+  log_debug("Sending file...");
   make_file_response(normalized_path, out_res);
 }
