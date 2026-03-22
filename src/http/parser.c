@@ -11,13 +11,14 @@
 
 void init_http_request(HttpRequest *req) { req->header_list.header_count = 0; }
 
-void init_parser(HttpParser *parser) {
+void init_parser(HttpParser *parser, char *parsing_buffer) {
   parser->buffer_len = 0;
   parser->offset = 0;
   parser->parsing_state = PARSING_HEADER_END;
   init_http_request(&parser->req);
   init_http_body(&parser->req.body);
   parser->err = SRV_OK;
+  parser->buffer = parsing_buffer;
 }
 
 void detect_header_end(HttpParser *status) {

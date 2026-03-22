@@ -29,11 +29,13 @@ void init_http_response(HttpResponse *res, char *res_buf) {
   res->headers_only = false;
   res->status_text = "OK";
   res->body.buffer_data = res_buf;
+  res->body.fd = -1;
 }
 
 void cleanup_response(HttpResponse *res) {
-  if (res->body.type == BODY_FILE) {
+  if (res->body.type == BODY_FILE && res->body.fd != -1) {
     close(res->body.fd);
+    res->body.fd = -1;
   }
 }
 

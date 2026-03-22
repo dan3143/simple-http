@@ -148,7 +148,7 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
   HttpParser parser;
   HttpResponse res;
 
-  init_parser(&parser);
+  init_parser(&parser, ctx->req_buffer);
 
   for (;;) {
 
@@ -164,7 +164,9 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
       memmove(ctx->req_buffer, ctx->req_buffer + consumed, leftover);
     }
 
-    init_parser(&parser);
+    init_parser(&parser, ctx->req_buffer);
+    parser.buffer_len = leftover;
+
     err = parse_request(client_sock, &parser);
     if (err == SRV_ERR_CONN_CLOSED) {
       break;

@@ -40,7 +40,7 @@ typedef struct {
 } HttpParser;
 
 void init_http_request(HttpRequest *);
-void init_parser(HttpParser *);
+void init_parser(HttpParser *, char *);
 void parse_http(HttpParser *);
 bool should_keepalive(HttpRequest *);
 
