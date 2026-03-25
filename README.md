@@ -1,25 +1,196 @@
-# Test HTTP server
+# Test HTTP Server
 
-A toy HTTP server I made while learning programming with C. It only supports HTTP/1.1 since I don't wanna deal with implementing HTTP/2 framing, multiplexing, flow control, etc.
+A toy HTTP server I built while learning programming in C. It only supports HTTP/1.1 since I don't want to deal with implementing HTTP/2 framing, multiplexing, flow control, etc.
 
-It will serve static files from the current folder (modifiable by the `-d` option).
+This project probably contains many errors and has little to no compliance with [RFC 9112](https://www.rfc-editor.org/rfc/rfc9112.html). Please do not use it for anything serious.
 
-It can be bound to a specific port in a specific IP address using the `-p` and `-h` options respectively.
+## Build instructions
+The project uses a simple Makefile. To build the server just run:
 
-Usage:
+```
+make
+```
+
+This will produce a `simple-http` executbale into a `./build` directory. To clean build files:
+
+```
+make clean
+```
+
+## Dependencies
+This project will depend on [OpenSSL](https://github.com/openssl/openssl) for future TLS support. To build the project you will need OpenSSL development libraries installed on your system.
+
+### Debian/Ubuntu
+```
+sudo apt install libssl-dev
+```
+
+### Fedora
+```
+sudo dnf install openssl-devel
+```
+
+### Arch Linux
+```
+sudo pacman -S openssl
+```
+
+## Usage
 
 ```
 simple-http [options]
 ```
 
-This is just a toy server with a lot of errors and little to no compliance with [RFC 9112](https://www.rfc-editor.org/rfc/rfc9112.html). Please do not use it for anything serious.
+### Command-line options
 
-## To-do list:
+The currently supported options are:
 
-- [X] Multithreading
-- [X] Persistent connections
-- [ ] Better HTTP/1.1 compliance
-- [ ] TLS support with [openssl](https://github.com/openssl/openssl)
-- [X] Read configuration from a file
+* `--host, -h`: IP address the server will bind to
+* `--port, -p`: Port used to serve HTTP
+* `--verbose, -v`: Enable verbose logging
+* `--quiet, -q`: Suppress logging
+* `--config, -c`: Location of a `.ini` configuration file
+* `--tls-enabled, -s`: Whether to support TLS (not implemented)
+* `--tls-port, -t`: Port used to serve HTTPS (not implemented)
+* `--tls-key, -k`: Location of the private key for TLS (not implemented)
+* `--tls-certificate, -r`: Location of the certificate for TLS (not implemented)
 
-I don't expect to finish everything laid out in that list, but I will try.
+
+# Configuration File
+
+The following settings can be configured in the configuration file using the format:
+
+```
+setting = value
+```
+
+By default, the program looks for a file in the current directory called `conf.ini`.
+
+---
+
+### host
+
+IP address the server will bind to.
+
+**Default value:** `0.0.0.0`
+
+---
+
+### http_port
+
+Port used to serve HTTP.
+
+**Default value:** `8080`
+
+---
+
+### https_port
+
+Port used to serve HTTPS.
+
+**Default value:** `8443`
+
+---
+
+### doc_root
+
+Directory containing the static files that will be served.
+
+**Default value:** `./`
+
+---
+
+### index_file
+
+Path to the file (relative to `doc_root`) that will be served when requesting `/`.
+
+**Default value:** `index.html`
+
+---
+
+### keepalive_timeout
+
+Amount of time in seconds to wait before the server closes an idle connection.
+
+**Default value:** `15`
+
+---
+
+### log_level
+
+Logging level.
+
+**Accepted values:** `verbose`, `quiet`, `warn`, `informational`
+**Default value:** `informational`
+
+---
+
+### max_connections
+
+Maximum number of concurrent connections allowed by the server.
+
+**Default value:** `1024`
+
+---
+
+### workers_number
+
+Number of worker threads used to handle incoming HTTP requests.
+
+**Default value:** `8`
+
+---
+
+### tls_certificate
+
+Location of the TLS certificate file.
+
+**Default value:** `./server.crt`
+
+---
+
+### tls_key
+
+Location of the TLS private key file.
+
+**Default value:** `./server.key`
+
+---
+
+### tls_enabled
+
+Whether TLS will be enabled.
+
+**Accepted values:** `true`, `false`
+**Default value:** `false`
+
+---
+
+## Example Configuration File
+
+```
+# conf.ini
+host = 0.0.0.0
+http_port = 8080
+https_port = 8443
+doc_root = ./
+index_file = index.html
+keepalive_timeout = 15
+log_level = informational
+max_connections = 1024
+workers_number = 8
+tls_enabled = false
+tls_certificate = ./server.crt
+tls_key = ./server.key
+```
+
+
+# To-do List
+
+* [x] Multithreading
+* [x] Persistent connections
+* [ ] Better HTTP/1.1 compliance
+* [ ] TLS support with OpenSSL
+* [x] Read configuration from a file
+
+I don't expect to finish everything on this list, but I will try.

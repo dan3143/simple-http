@@ -21,7 +21,7 @@ ServerConfig get_default_config() {
                          .host = "0.0.0.0",
                          .http_port = "8080",
                          .https_port = "8443",
-                         .log_level = LOG_DEBUG,
+                         .log_level = LOG_INFO,
                          .n_threads = 8,
                          .keepalive_timeout = 15,
                          .max_connections = 1024,
