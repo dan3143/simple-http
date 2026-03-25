@@ -1,4 +1,5 @@
 #include "http/util.h"
+#include "config/server_config.h"
 #include "core/log.h"
 #include "misc/util.h"
 #include "net/server.h"
@@ -65,7 +66,8 @@ ServerError normalize_path(const char *path, const char *root_path,
   }
 
   if (strlen(path) == 0) {
-    strncpy(actual_path, "index.html", 10);
+    const char *default_index = get_config()->index_file;
+    strncpy(actual_path, default_index, strlen(default_index));
     actual_path[10] = '\0';
   }
 

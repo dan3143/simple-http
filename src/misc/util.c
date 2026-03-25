@@ -1,9 +1,11 @@
 #include "misc/util.h"
 #include <arpa/inet.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 
@@ -75,4 +77,16 @@ void print_hex_bytes(char *buf, size_t len) {
   if (len % 4 != 0) {
     printf("\n");
   }
+}
+
+int safe_str_to_int(char *str, int *output) {
+  errno = 0;
+  char *endptr;
+  int converted_value = strtol(str, &endptr, 10);
+  if (errno == ERANGE)
+    return 0;
+  if (endptr == str)
+    return 0;
+  *output = converted_value;
+  return 1;
 }

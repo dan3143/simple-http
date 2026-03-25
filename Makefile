@@ -1,6 +1,6 @@
 CC = gcc
 
-CFLAGS  = -Wall -g -Iinclude -pthread
+CFLAGS  = -Wall -g -Iinclude -pthread -lssl -lcrypto
 LDFLAGS = -pthread
 
 TARGET_NAME = simple-http

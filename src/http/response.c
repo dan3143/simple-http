@@ -1,4 +1,5 @@
 #include "http/response.h"
+#include "config/server_config.h"
 #include "core/log.h"
 #include "core/strings.h"
 #include "core/worker_pool.h"
@@ -20,8 +21,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-extern ServerConfig config;
 
 void init_http_response(HttpResponse *res, char *res_buf) {
   res->header_list.header_count = 0;
@@ -140,7 +139,8 @@ void make_response(HttpParser *parser, HttpResponse *out_res) {
   }
 
   char normalized_path[PATH_MAX];
-  ServerError err = normalize_path(req.path, config.root_dir, normalized_path);
+  ServerError err =
+      normalize_path(req.path, get_config()->doc_root, normalized_path);
   if (err != SRV_OK) {
     make_error_response(srv_err_to_http_err(err), out_res);
     return;
