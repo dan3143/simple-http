@@ -8,7 +8,6 @@
 #define MISC_UTIL_H
 
 int get_port(struct sockaddr *);
-int send_all(int, char *, size_t *);
 bool file_exists(char *);
 char *get_file_extension(const char *);
 void get_addr_str(struct sockaddr *, char *);

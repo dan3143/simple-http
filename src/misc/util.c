@@ -48,22 +48,6 @@ int get_port(struct sockaddr *sa) {
   }
 }
 
-int send_all(int fd, char *buf, size_t *len) {
-  size_t total = 0;
-  int bytes_left = *len;
-  int n;
-  while (total < *len) {
-    n = send(fd, buf + total, bytes_left, 0);
-    if (n <= 0) {
-      break;
-    }
-    total += n;
-    bytes_left -= n;
-  }
-  *len = total;
-  return n == -1 ? -1 : 0;
-}
-
 void print_hex_bytes(char *buf, size_t len) {
   for (size_t i = 0; i < len; i++) {
 

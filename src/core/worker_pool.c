@@ -1,6 +1,7 @@
 #include "core/worker_pool.h"
 #include "core/job_queue.h"
 #include "core/log.h"
+#include "net/connection.h"
 #include "net/server.h"
 #include <pthread.h>
 #include <stddef.h>
@@ -23,10 +24,10 @@ void *worker(void *arg) {
       pthread_cond_wait(&queue->not_empty, &queue->mutex);
     }
 
-    int client_sock = dequeue_job(queue);
+    Connection *c = dequeue_job(queue);
     pthread_mutex_unlock(&queue->mutex);
 
-    handle_incoming_connection(client_sock, &ctx);
+    handle_incoming_connection(c, &ctx);
   }
 }
 
