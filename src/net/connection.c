@@ -4,10 +4,12 @@
 #include <errno.h>
 #include <netdb.h>
 #include <openssl/bio.h>
+#include <openssl/crypto.h>
 #include <openssl/ssl.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -76,6 +78,54 @@ int init_http_connection(Connection *conn, const char *ipstr,
   return 0;
 }
 
+int load_certificates(SSL_CTX *ctx, const char *cert_path,
+                      const char *key_path) {
+  if (SSL_CTX_load_verify_locations(ctx, cert_path, key_path) != 1) {
+    log_error("Error verifying certificate and key files");
+    return -1;
+  }
+  if (SSL_CTX_set_default_verify_paths(ctx) != 1) {
+    log_error("Error verifying certificate and key files");
+    return -1;
+  }
+
+  if (SSL_CTX_use_certificate_file(ctx, cert_path, SSL_FILETYPE_PEM) <= 0) {
+    log_error("Error setting %s as a certificate: %s", cert_path,
+              strerror(errno));
+    return -1;
+  }
+
+  if (SSL_CTX_use_PrivateKey_file(ctx, key_path, SSL_FILETYPE_PEM) <= 0) {
+    log_error("Error setting %s as the key: %s", key_path, strerror(errno));
+    return -1;
+  }
+
+  return 0;
+}
+
+int init_https_connection(Connection *c, const char *ipstr, const char *port,
+                          const char *cert_path, const char *key_path) {
+  init_http_connection(c, ipstr, port);
+  c->is_tls = true;
+  const SSL_METHOD *method;
+  SSL_CTX *ctx;
+
+  OpenSSL_add_ssl_algorithms();
+  SSL_load_error_strings();
+
+  method = TLS_server_method();
+  ctx = SSL_CTX_new(method);
+  if (ctx == NULL) {
+    log_error("Error creating TLS context");
+    return -1;
+  }
+
+  SSL_CTX_set_cipher_list(ctx, "ALL:eNULL");
+  load_certificates(ctx, cert_path, key_path);
+  c->ssl_ctx = ctx;
+  return 0;
+}
+
 int conn_accept(Connection *conn) {
   struct sockaddr_storage client_addr;
   socklen_t sin_size;
@@ -93,7 +143,8 @@ int conn_accept(Connection *conn) {
     log_error("Failed to set timeout for client socket");
   }
 
-  if (conn->is_tls && conn->ssl) {
+  if (conn->is_tls) {
+    conn->ssl = SSL_new(conn->ssl_ctx);
     SSL_set_fd(conn->ssl, conn->client_sock);
     if (SSL_accept(conn->ssl) == -1) {
       log_error("TLS accept failed");

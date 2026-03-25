@@ -12,6 +12,7 @@ int main(int argc, char **argv) {
   signal(SIGPIPE, SIG_IGN);
   init_server_config(argc, argv);
   log_set_level(get_config()->log_level);
-  start_http_server(get_config()->host, get_config()->http_port);
+  start_http_server(get_config()->host, get_config()->https_port,
+                    get_config()->tls_enabled);
   return 0;
 }

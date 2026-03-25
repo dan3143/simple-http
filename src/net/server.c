@@ -22,7 +22,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-int parse_request(Connection *c, HttpParser *parser) {
+int receive_request(Connection *c, HttpParser *parser) {
   while (1) {
     int received_bytes;
     log_debug("Receiving data...");
@@ -112,7 +112,7 @@ void handle_incoming_connection(Connection *c, WorkerContext *ctx) {
     init_parser(&parser, ctx->req_buffer);
     parser.buffer_len = leftover;
 
-    err = parse_request(c, &parser);
+    err = receive_request(c, &parser);
     if (err == SRV_ERR_CONN_CLOSED) {
       break;
     }
@@ -138,9 +138,14 @@ void handle_incoming_connection(Connection *c, WorkerContext *ctx) {
   close(c->client_sock);
 }
 
-void start_http_server(const char *ipstr, const char *port) {
+void start_http_server(const char *ipstr, const char *port, bool is_tls) {
   Connection c;
-  init_http_connection(&c, ipstr, port);
+  if (is_tls) {
+    init_https_connection(&c, ipstr, port, get_config()->tls_cert,
+                          get_config()->tls_key);
+  } else {
+    init_http_connection(&c, ipstr, port);
+  }
 
   WorkerPool *pool = init_worker_pool(get_config()->n_threads);
   log_debug("Created pool of %d workers", get_config()->n_threads);

@@ -133,7 +133,7 @@ void process_config_line(char *key, char *value, size_t key_len,
     snprintf(g_config.tls_key, value_len + 1, "%s", value);
   }
   if (strncmp(key, "tls_enabled", key_len) == 0) {
-    if (strncmp(value, "true", value_len)) {
+    if (strncmp(value, "true", value_len) == 0) {
       g_config.tls_enabled = true;
     } else {
       g_config.tls_enabled = false;
