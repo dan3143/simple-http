@@ -1,4 +1,5 @@
 #include "net/server.h"
+#include "config/server_config.h"
 #include "core/job_queue.h"
 #include "core/log.h"
 #include "core/worker_pool.h"
@@ -20,15 +21,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define BACKLOG 1024
-
-extern ServerConfig config;
-
-int init_server_sock(char *ipstr, char *port) {
+int get_server_sock(const char *ipstr, const char *port) {
   int server_sockfd, status;
   struct addrinfo *server_info, *p, hints;
   memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_INET;
+  hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   int yes = 1;
 
@@ -62,7 +59,6 @@ int init_server_sock(char *ipstr, char *port) {
     log_fatal("Could not listen in specified host\n");
     exit(1);
   }
-
   return server_sockfd;
 }
 
@@ -195,7 +191,7 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
 
 void listen_on_server_sock(int server_sock) {
 
-  if (listen(server_sock, BACKLOG) == -1) {
+  if (listen(server_sock, get_config()->max_connections) == -1) {
     log_fatal("Could not listen on socket: %s", strerror(errno));
     exit(1);
   }
@@ -204,8 +200,9 @@ void listen_on_server_sock(int server_sock) {
   socklen_t sin_size;
   int client_sock;
 
-  WorkerPool *pool = init_worker_pool(config.workers);
-  log_debug("Created pool of %d workers", config.workers);
+  WorkerPool *pool = init_worker_pool(get_config()->n_threads);
+  log_debug("Created pool of %d workers", get_config()->n_threads);
+
   while (1) {
 
     sin_size = sizeof client_addr;
@@ -217,18 +214,17 @@ void listen_on_server_sock(int server_sock) {
       continue;
     }
 
-    struct timeval tv = {.tv_sec = 15, .tv_usec = 0};
+    struct timeval tv = {.tv_sec = get_config()->keepalive_timeout,
+                         .tv_usec = 0};
     if (setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
       log_error("Failed to set timeout for client socket");
     }
 
-    log_debug("Adding to queue...");
     enqueue_job(client_sock, pool->queue);
   }
 }
 
-void listen_on(char *ipstr, char *port) {
-  log_info("Initializing server on %s:%s", ipstr, port);
-  int server_sockfd = init_server_sock(ipstr, port);
-  listen_on_server_sock(server_sockfd);
+void start_http_server(const char *ipstr, const char *port) {
+  int socket = get_server_sock(ipstr, port);
+  listen_on_server_sock(socket);
 }

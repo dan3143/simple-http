@@ -14,7 +14,7 @@ typedef enum {
   SRV_ERR_CONN_CLOSED,
 } ServerError;
 
-void listen_on(char *, char *);
+void start_http_server(const char *, const char *);
 void handle_incoming_connection(int, WorkerContext *);
 
 #endif
