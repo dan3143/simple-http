@@ -84,7 +84,7 @@ void handle_incoming_connection(Connection *c, WorkerContext *ctx) {
   socklen_t len;
 
   len = sizeof(addr);
-  getpeername(c->client_sock, (struct sockaddr *)&addr, &len);
+  getpeername(c->socket, (struct sockaddr *)&addr, &len);
   get_addr_str((struct sockaddr *)&addr, ipstr);
   port = get_port((struct sockaddr *)&addr);
 
@@ -97,7 +97,7 @@ void handle_incoming_connection(Connection *c, WorkerContext *ctx) {
 
   for (;;) {
 
-    if (c->client_sock < 0) {
+    if (c->socket < 0) {
       return;
     }
 
@@ -135,27 +135,33 @@ void handle_incoming_connection(Connection *c, WorkerContext *ctx) {
     cleanup_response(&res);
   }
 
-  close(c->client_sock);
+  free_connection(c);
 }
 
-void start_http_server(const char *ipstr, const char *port, bool is_tls) {
-  Connection c;
-  if (is_tls) {
-    init_https_connection(&c, ipstr, port, get_config()->tls_cert,
-                          get_config()->tls_key);
+void start_http_server() {
+  int server_sock;
+
+  if (get_config()->tls_enabled) {
+    server_sock = get_server_sock(get_config()->host, get_config()->https_port);
+    int status =
+        init_ssl_context(get_config()->tls_cert, get_config()->tls_key);
+    if (status == -1) {
+      log_error("Failed creating SSL context");
+      return;
+    }
   } else {
-    init_http_connection(&c, ipstr, port);
+    server_sock = get_server_sock(get_config()->host, get_config()->http_port);
   }
 
   WorkerPool *pool = init_worker_pool(get_config()->n_threads);
   log_debug("Created pool of %d workers", get_config()->n_threads);
 
   while (1) {
-
-    if (conn_accept(&c) == -1) {
+    Connection *conn = conn_accept(server_sock, get_config()->tls_enabled);
+    if (!conn) {
       log_error("Could not accept incoming connection: %s", strerror(errno));
       continue;
     }
-    enqueue_job(&c, pool->queue);
+    enqueue_job(conn, pool->queue);
   }
 }

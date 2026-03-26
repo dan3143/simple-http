@@ -14,6 +14,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+static SSL_CTX *g_ssl_ctx = NULL;
+
 int get_server_sock(const char *ipstr, const char *port) {
   int server_sockfd, status;
   struct addrinfo *server_info, *p, hints;
@@ -43,6 +45,11 @@ int get_server_sock(const char *ipstr, const char *port) {
       log_error("Error during bind: %s", strerror(errno));
       continue;
     }
+    if (listen(server_sockfd, get_config()->max_connections) < 0) {
+      close(server_sockfd);
+      log_error("Error when listening: %s", strerror(errno));
+      continue;
+    }
     break;
   }
 
@@ -55,27 +62,24 @@ int get_server_sock(const char *ipstr, const char *port) {
   return server_sockfd;
 }
 
-int listen_on_socket(Connection *c) {
-  if (listen(c->server_sock, get_config()->max_connections) < 0) {
-    return -1;
-  }
-  return 0;
+Connection *get_new_connection(bool is_tls) {
+  Connection *conn = malloc(sizeof(Connection));
+  conn->socket = -1;
+  conn->is_tls = is_tls;
+  conn->ssl = NULL;
+  return conn;
 }
 
-int init_http_connection(Connection *conn, const char *ipstr,
-                         const char *port) {
-  conn->is_tls = false;
-  conn->ssl = NULL;
-  int server_sock = get_server_sock(ipstr, port);
-  if (server_sock <= 0) {
-    return -1;
+void free_connection(Connection *conn) {
+  if (conn->socket > 0) {
+    close(conn->socket);
   }
-  conn->server_sock = server_sock;
-  int status = listen_on_socket(conn);
-  if (status < 0) {
-    return -1;
+
+  if (conn->ssl) {
+    SSL_free(conn->ssl);
   }
-  return 0;
+
+  free(conn);
 }
 
 int load_certificates(SSL_CTX *ctx, const char *cert_path,
@@ -103,10 +107,7 @@ int load_certificates(SSL_CTX *ctx, const char *cert_path,
   return 0;
 }
 
-int init_https_connection(Connection *c, const char *ipstr, const char *port,
-                          const char *cert_path, const char *key_path) {
-  init_http_connection(c, ipstr, port);
-  c->is_tls = true;
+int init_ssl_context(const char *cert_path, const char *key_path) {
   const SSL_METHOD *method;
   SSL_CTX *ctx;
 
@@ -122,38 +123,42 @@ int init_https_connection(Connection *c, const char *ipstr, const char *port,
 
   SSL_CTX_set_cipher_list(ctx, "ALL:eNULL");
   load_certificates(ctx, cert_path, key_path);
-  c->ssl_ctx = ctx;
+
+  g_ssl_ctx = ctx;
+
   return 0;
 }
 
-int conn_accept(Connection *conn) {
+SSL_CTX *get_ssl_context() { return g_ssl_ctx; }
+
+Connection *conn_accept(int fd, bool is_tls) {
+
   struct sockaddr_storage client_addr;
   socklen_t sin_size;
-  int client_sock =
-      accept(conn->server_sock, ((struct sockaddr *)&client_addr), &sin_size);
+  int client_sock = accept(fd, ((struct sockaddr *)&client_addr), &sin_size);
 
   if (client_sock <= 0) {
-    return -1;
+    return NULL;
   }
-  conn->client_sock = client_sock;
+
+  Connection *conn = get_new_connection(is_tls);
+
+  conn->socket = client_sock;
   struct timeval tv = {.tv_sec = get_config()->keepalive_timeout, .tv_usec = 0};
 
-  if (setsockopt(conn->client_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) <
-      0) {
+  if (setsockopt(conn->socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
     log_error("Failed to set timeout for client socket");
   }
 
   if (conn->is_tls) {
-    conn->ssl = SSL_new(conn->ssl_ctx);
-    SSL_set_fd(conn->ssl, conn->client_sock);
+    conn->ssl = SSL_new(get_ssl_context());
+    SSL_set_fd(conn->ssl, conn->socket);
     if (SSL_accept(conn->ssl) == -1) {
-      log_error("TLS accept failed");
-      SSL_free(conn->ssl);
-      close(conn->client_sock);
-      return -1;
+      free_connection(conn);
+      return NULL;
     }
   }
-  return 0;
+  return conn;
 }
 
 int conn_read(Connection *conn, char *buf, size_t n) {
@@ -162,7 +167,7 @@ int conn_read(Connection *conn, char *buf, size_t n) {
   if (conn->is_tls && conn->ssl) {
     received_bytes = SSL_read(conn->ssl, buf, n);
   } else {
-    received_bytes = recv(conn->client_sock, buf, n, 0);
+    received_bytes = recv(conn->socket, buf, n, 0);
   }
 
   return received_bytes;
@@ -173,7 +178,7 @@ int conn_write(Connection *conn, char *buf, size_t n) {
   if (conn->is_tls && conn->ssl) {
     sent_bytes = SSL_write(conn->ssl, buf, n);
   } else {
-    sent_bytes = send(conn->client_sock, buf, n, 0);
+    sent_bytes = send(conn->socket, buf, n, 0);
   }
   return sent_bytes;
 }
@@ -205,12 +210,12 @@ int conn_send_file(Connection *conn, int fd, size_t len) {
 
   while (remaining > 0) {
     ssize_t sent;
-    if (conn->is_tls) { // TODO: support kernel TLS if available
+    if (conn->is_tls) {
       sent = pread(fd, buf, remaining, offset);
       conn_write_all(conn, buf, remaining);
       offset += sent;
     } else {
-      sent = sendfile(conn->client_sock, fd, &offset, remaining);
+      sent = sendfile(conn->socket, fd, &offset, remaining);
     }
 
     if (sent <= 0)
