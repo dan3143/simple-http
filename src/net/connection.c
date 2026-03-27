@@ -134,7 +134,7 @@ SSL_CTX *get_ssl_context() { return g_ssl_ctx; }
 Connection *conn_accept(int fd, bool is_tls) {
 
   struct sockaddr_storage client_addr;
-  socklen_t sin_size;
+  socklen_t sin_size = sizeof(client_addr);
   int client_sock = accept(fd, ((struct sockaddr *)&client_addr), &sin_size);
 
   if (client_sock <= 0) {
@@ -153,7 +153,7 @@ Connection *conn_accept(int fd, bool is_tls) {
   if (conn->is_tls) {
     conn->ssl = SSL_new(get_ssl_context());
     SSL_set_fd(conn->ssl, conn->socket);
-    if (SSL_accept(conn->ssl) == -1) {
+    if (SSL_accept(conn->ssl) <= -1) {
       free_connection(conn);
       return NULL;
     }
@@ -162,7 +162,7 @@ Connection *conn_accept(int fd, bool is_tls) {
 }
 
 int conn_read(Connection *conn, char *buf, size_t n) {
-  size_t received_bytes = 0;
+  ssize_t received_bytes = 0;
 
   if (conn->is_tls && conn->ssl) {
     received_bytes = SSL_read(conn->ssl, buf, n);
@@ -174,7 +174,7 @@ int conn_read(Connection *conn, char *buf, size_t n) {
 }
 
 int conn_write(Connection *conn, char *buf, size_t n) {
-  size_t sent_bytes = 0;
+  ssize_t sent_bytes = 0;
   if (conn->is_tls && conn->ssl) {
     sent_bytes = SSL_write(conn->ssl, buf, n);
   } else {
@@ -186,7 +186,7 @@ int conn_write(Connection *conn, char *buf, size_t n) {
 int conn_write_all(Connection *conn, char *buf, size_t len) {
   size_t total = 0;
   int bytes_left = len;
-  int n;
+  ssize_t n;
   while (total < len) {
     n = conn_write(conn, buf + total, bytes_left);
     if (n <= 0) {
@@ -206,27 +206,28 @@ int conn_send_file(Connection *conn, int fd, size_t len) {
 
   if (conn->is_tls) {
     buf = malloc(len);
+    if (!buf)
+      return -1;
   }
 
   while (remaining > 0) {
     ssize_t sent;
     if (conn->is_tls) {
       sent = pread(fd, buf, remaining, offset);
-      conn_write_all(conn, buf, remaining);
+      if (sent <= 0)
+        break;
+      conn_write_all(conn, buf, sent);
       offset += sent;
     } else {
       sent = sendfile(conn->socket, fd, &offset, remaining);
+      if (sent <= 0) {
+        break;
+      }
     }
 
-    if (sent <= 0)
-      return sent;
     remaining -= sent;
     total_sent += sent;
   }
-
-  if (buf) {
-    free(buf);
-  }
-
+  free(buf);
   return total_sent;
 }

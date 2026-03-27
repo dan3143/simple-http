@@ -1,8 +1,10 @@
 #include "core/worker_pool.h"
 #include "core/job_queue.h"
 #include "core/log.h"
+#include "misc/util.h"
 #include "net/connection.h"
 #include "net/server.h"
+#include <netinet/in.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -10,6 +12,7 @@
 void *worker(void *arg) {
   WorkerArgs *args = (WorkerArgs *)arg;
   JobQueue *queue = args->queue;
+  int id = args->thread_id;
   free(args);
 
   WorkerContext ctx;
@@ -25,7 +28,12 @@ void *worker(void *arg) {
     }
 
     Connection *c = dequeue_job(queue);
+    char ipstr[INET6_ADDRSTRLEN];
+    ip_str_from_socket(c->socket, ipstr);
+    int port = port_from_socket(c->socket);
+
     pthread_mutex_unlock(&queue->mutex);
+    log_info("Thread %d is managing connection: %s:%d", id, ipstr, port);
 
     handle_incoming_connection(c, &ctx);
   }

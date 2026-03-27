@@ -27,7 +27,7 @@ void sb_free(StringBuilder *sb) {
 }
 
 int sb_grow(StringBuilder *sb, size_t min_capacity) {
-  int new_capacity = sb->capacity;
+  size_t new_capacity = sb->capacity;
   while (new_capacity < min_capacity) {
     new_capacity *= 2;
   }
@@ -41,6 +41,8 @@ int sb_grow(StringBuilder *sb, size_t min_capacity) {
 }
 
 int sb_appendn(StringBuilder *sb, const char *str, size_t n) {
+  if (!sb || !sb->data)
+    return -1;
   size_t required_size = sb->length + n + 1;
   if (required_size > sb->capacity) {
     if (sb_grow(sb, required_size) < 0)
