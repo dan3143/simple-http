@@ -26,6 +26,7 @@ typedef struct {
 JobQueue *init_job_queue();
 Connection *dequeue_job(JobQueue *);
 void enqueue_job(Connection *, JobQueue *);
+void stop_job_queue(JobQueue *);
 void free_job_queue(JobQueue *);
 bool queue_empty(JobQueue *);
 

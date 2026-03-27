@@ -13,6 +13,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +22,13 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+static volatile sig_atomic_t g_stop = 0;
+
+static void handle_shutdown_signal(int sig) {
+  (void)sig;
+  g_stop = 1;
+}
 
 int receive_request(Connection *c, HttpParser *parser) {
   while (1) {
@@ -133,6 +141,14 @@ void handle_incoming_connection(Connection *c, WorkerContext *ctx) {
 void start_http_server() {
   int server_sock;
 
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = handle_shutdown_signal;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+
   if (get_config()->tls_enabled) {
     server_sock = get_server_sock(get_config()->host, get_config()->https_port);
     int status =
@@ -148,12 +164,21 @@ void start_http_server() {
   WorkerPool *pool = init_worker_pool(get_config()->n_threads);
   log_debug("Created pool of %d workers", get_config()->n_threads);
 
-  while (1) {
+  while (!g_stop) {
     Connection *conn = conn_accept(server_sock, get_config()->tls_enabled);
     if (!conn) {
+      if (g_stop) {
+        break;
+      }
       log_error("Could not accept incoming connection: %s", strerror(errno));
       continue;
     }
     enqueue_job(conn, pool->queue);
   }
+
+  log_info("Shutting down server...");
+  free_worker_pool(pool);
+  close(server_sock);
+  free_ssl_context();
+  log_info("Server shutdown complete");
 }

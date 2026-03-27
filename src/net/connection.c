@@ -131,6 +131,13 @@ int init_ssl_context(const char *cert_path, const char *key_path) {
 
 SSL_CTX *get_ssl_context() { return g_ssl_ctx; }
 
+void free_ssl_context(void) {
+  if (g_ssl_ctx) {
+    SSL_CTX_free(g_ssl_ctx);
+    g_ssl_ctx = NULL;
+  }
+}
+
 Connection *conn_accept(int fd, bool is_tls) {
 
   struct sockaddr_storage client_addr;

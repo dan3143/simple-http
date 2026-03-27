@@ -23,8 +23,13 @@ void *worker(void *arg) {
   for (;;) {
 
     pthread_mutex_lock(&queue->mutex);
-    while (queue_empty(queue)) {
+    while (queue_empty(queue) && !queue->stop) {
       pthread_cond_wait(&queue->not_empty, &queue->mutex);
+    }
+
+    if (queue->stop) {
+      pthread_mutex_unlock(&queue->mutex);
+      break;
     }
 
     Connection *c = dequeue_job(queue);
@@ -37,6 +42,11 @@ void *worker(void *arg) {
 
     handle_incoming_connection(c, &ctx);
   }
+
+  free(ctx.req_buffer);
+  free(ctx.res_body_buffer);
+  free(ctx.res_header_buffer);
+  return NULL;
 }
 
 WorkerPool *init_worker_pool(size_t n_workers) {
@@ -53,4 +63,14 @@ WorkerPool *init_worker_pool(size_t n_workers) {
     log_info("Created thread %d", i);
   }
   return pool;
+}
+
+void free_worker_pool(WorkerPool *pool) {
+  stop_job_queue(pool->queue);
+  for (int i = 0; i < pool->n; i++) {
+    pthread_join(pool->threads[i], NULL);
+  }
+  free(pool->threads);
+  free_job_queue(pool->queue);
+  free(pool);
 }
