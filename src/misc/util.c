@@ -28,6 +28,20 @@ char *get_file_extension(const char *filename) {
   return dot + 1;
 }
 
+void ip_str_from_socket(int socket, char *ipstr) {
+  struct sockaddr_storage addr;
+  socklen_t len = sizeof(addr);
+  getpeername(socket, (struct sockaddr *)&addr, &len);
+  get_addr_str((struct sockaddr *)&addr, ipstr);
+}
+
+int port_from_socket(int socket) {
+  struct sockaddr_storage addr;
+  socklen_t len = sizeof(addr);
+  getpeername(socket, (struct sockaddr *)&addr, &len);
+  return get_port((struct sockaddr *)&addr);
+}
+
 void get_addr_str(struct sockaddr *sa, char *addr_str) {
   if (sa->sa_family == AF_INET) {
     struct sockaddr_in *ipv4 = (struct sockaddr_in *)sa;
@@ -46,22 +60,6 @@ int get_port(struct sockaddr *sa) {
     struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)sa;
     return ntohs(ipv6->sin6_port);
   }
-}
-
-int send_all(int fd, char *buf, size_t *len) {
-  size_t total = 0;
-  int bytes_left = *len;
-  int n;
-  while (total < *len) {
-    n = send(fd, buf + total, bytes_left, 0);
-    if (n <= 0) {
-      break;
-    }
-    total += n;
-    bytes_left -= n;
-  }
-  *len = total;
-  return n == -1 ? -1 : 0;
 }
 
 void print_hex_bytes(char *buf, size_t len) {

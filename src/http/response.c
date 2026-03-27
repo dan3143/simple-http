@@ -146,6 +146,6 @@ void make_response(HttpParser *parser, HttpResponse *out_res) {
     return;
   }
 
-  log_debug("Sending file...");
+  log_debug("Making file response...");
   make_file_response(normalized_path, out_res);
 }

@@ -1,4 +1,5 @@
 #include "core/job_queue.h"
+#include "net/connection.h"
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -30,9 +31,9 @@ void free_job_queue(JobQueue *queue) {
   free(queue);
 }
 
-void enqueue_job(int client_sock, JobQueue *queue) {
+void enqueue_job(Connection *c, JobQueue *queue) {
   Job *job = malloc(sizeof(Job));
-  job->client_sock = client_sock;
+  job->conn = c;
   job->next = NULL;
 
   pthread_mutex_lock(&queue->mutex);
@@ -49,11 +50,11 @@ void enqueue_job(int client_sock, JobQueue *queue) {
   pthread_mutex_unlock(&queue->mutex);
 }
 
-int dequeue_job(JobQueue *queue) {
+Connection *dequeue_job(JobQueue *queue) {
   Job *job = queue->head;
   if (job == NULL)
     return 0;
-  int sockfd = job->client_sock;
+  Connection *sockfd = job->conn;
   queue->head = job->next;
   if (queue->head == NULL) {
     queue->tail = NULL;

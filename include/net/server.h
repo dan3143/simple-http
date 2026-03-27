@@ -2,6 +2,7 @@
 #define SERVER_H
 
 #include "core/worker_pool.h"
+#include "net/connection.h"
 typedef enum {
   SRV_OK = 0,
   SRV_AGAIN,
@@ -14,7 +15,7 @@ typedef enum {
   SRV_ERR_CONN_CLOSED,
 } ServerError;
 
-void start_http_server(const char *, const char *);
-void handle_incoming_connection(int, WorkerContext *);
+void start_http_server();
+void handle_incoming_connection(Connection *, WorkerContext *);
 
 #endif

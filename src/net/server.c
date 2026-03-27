@@ -6,6 +6,7 @@
 #include "http/parser.h"
 #include "http/response.h"
 #include "misc/util.h"
+#include "net/connection.h"
 #include <arpa/inet.h>
 #include <asm-generic/errno-base.h>
 #include <errno.h>
@@ -21,53 +22,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-int get_server_sock(const char *ipstr, const char *port) {
-  int server_sockfd, status;
-  struct addrinfo *server_info, *p, hints;
-  memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_STREAM;
-  int yes = 1;
-
-  if ((status = getaddrinfo(ipstr, port, &hints, &server_info)) != 0) {
-    log_error("getaddrinfo: %s", gai_strerror(status));
-    exit(1);
-  }
-
-  for (p = server_info; p != NULL; p = p->ai_next) {
-    if ((server_sockfd =
-             socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-      log_error("Error while initializing socket: %s", strerror(errno));
-      continue;
-    }
-    if (setsockopt(server_sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-                   sizeof(int)) == -1) {
-      log_fatal("Error when setting socket options: %s", strerror(errno));
-      exit(1);
-    }
-    if (bind(server_sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-      close(server_sockfd);
-      log_error("Error during bind: %s", strerror(errno));
-      continue;
-    }
-    break;
-  }
-
-  freeaddrinfo(server_info);
-
-  if (p == NULL) {
-    log_fatal("Could not listen in specified host\n");
-    exit(1);
-  }
-  return server_sockfd;
-}
-
-int parse_request(int client_sock, HttpParser *parser) {
+int receive_request(Connection *c, HttpParser *parser) {
   while (1) {
     int received_bytes;
     log_debug("Receiving data...");
-    received_bytes = recv(client_sock, parser->buffer + parser->buffer_len,
-                          REQ_BUF_SIZE - parser->buffer_len, 0);
+
+    received_bytes = conn_read(c, parser->buffer + parser->buffer_len,
+                               REQ_BUF_SIZE - parser->buffer_len);
 
     if (received_bytes <= 0) {
       log_debug("Could not send. Closing connection");
@@ -92,54 +53,34 @@ int parse_request(int client_sock, HttpParser *parser) {
   return -1;
 }
 
-ServerError send_response(int client_sock, HttpResponse *res,
+ServerError send_response(Connection *c, HttpResponse *res,
                           WorkerContext *ctx) {
   serialize_response_metadata(res, ctx->res_header_buffer);
 
   size_t metadata_len = strlen(ctx->res_header_buffer);
 
-  send_all(client_sock, ctx->res_header_buffer, &metadata_len);
+  conn_write_all(c, ctx->res_header_buffer, metadata_len);
+
+  if (res->headers_only)
+    return SRV_OK;
 
   if (res->body.type == BODY_BUFFER) {
-    if (res->headers_only)
-      return SRV_OK;
-
-    size_t body_len = res->body.length;
-    if (send_all(client_sock, res->body.buffer_data, &body_len) < 0) {
+    if (conn_write_all(c, res->body.buffer_data, res->body.length) < 0) {
       return SRV_ERR_CONN_CLOSED;
     }
   }
   if (res->body.type == BODY_FILE) {
-
-    off_t offset = 0;
-    size_t remaining = res->body.length;
-
-    if (res->headers_only) {
-      return SRV_OK;
-    }
-
-    while (remaining > 0) {
-      ssize_t sent = sendfile(client_sock, res->body.fd, &offset, remaining);
-      if (sent <= 0)
-        return SRV_ERR_CONN_CLOSED;
-      remaining -= sent;
+    if (conn_send_file(c, res->body.fd, res->body.length) < 0) {
+      return SRV_ERR_CONN_CLOSED;
     }
   }
   return SRV_OK;
 }
 
-void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
-  struct sockaddr_storage addr;
+void handle_incoming_connection(Connection *c, WorkerContext *ctx) {
+
   char ipstr[INET6_ADDRSTRLEN];
-  int port;
-  socklen_t len;
-
-  len = sizeof(addr);
-  getpeername(client_sock, (struct sockaddr *)&addr, &len);
-  get_addr_str((struct sockaddr *)&addr, ipstr);
-  port = get_port((struct sockaddr *)&addr);
-
-  log_debug("Accepted connection from %s:%d", ipstr, port);
+  ip_str_from_socket(c->socket, ipstr);
 
   HttpParser parser;
   HttpResponse res;
@@ -148,7 +89,7 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
 
   for (;;) {
 
-    if (client_sock < 0) {
+    if (c->socket < 0) {
       return;
     }
 
@@ -163,7 +104,7 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
     init_parser(&parser, ctx->req_buffer);
     parser.buffer_len = leftover;
 
-    err = parse_request(client_sock, &parser);
+    err = receive_request(c, &parser);
     if (err == SRV_ERR_CONN_CLOSED) {
       break;
     }
@@ -171,7 +112,7 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
     init_http_response(&res, ctx->res_body_buffer);
     make_response(&parser, &res);
 
-    err = send_response(client_sock, &res, ctx);
+    err = send_response(c, &res, ctx);
     if (err == SRV_ERR_CONN_CLOSED) {
       break;
     }
@@ -186,45 +127,33 @@ void handle_incoming_connection(int client_sock, WorkerContext *ctx) {
     cleanup_response(&res);
   }
 
-  close(client_sock);
+  free_connection(c);
 }
 
-void listen_on_server_sock(int server_sock) {
+void start_http_server() {
+  int server_sock;
 
-  if (listen(server_sock, get_config()->max_connections) == -1) {
-    log_fatal("Could not listen on socket: %s", strerror(errno));
-    exit(1);
+  if (get_config()->tls_enabled) {
+    server_sock = get_server_sock(get_config()->host, get_config()->https_port);
+    int status =
+        init_ssl_context(get_config()->tls_cert, get_config()->tls_key);
+    if (status == -1) {
+      log_error("Failed creating SSL context");
+      return;
+    }
+  } else {
+    server_sock = get_server_sock(get_config()->host, get_config()->http_port);
   }
-
-  struct sockaddr_storage client_addr;
-  socklen_t sin_size;
-  int client_sock;
 
   WorkerPool *pool = init_worker_pool(get_config()->n_threads);
   log_debug("Created pool of %d workers", get_config()->n_threads);
 
   while (1) {
-
-    sin_size = sizeof client_addr;
-    client_sock =
-        accept(server_sock, ((struct sockaddr *)&client_addr), &sin_size);
-
-    if (client_sock == -1) {
+    Connection *conn = conn_accept(server_sock, get_config()->tls_enabled);
+    if (!conn) {
       log_error("Could not accept incoming connection: %s", strerror(errno));
       continue;
     }
-
-    struct timeval tv = {.tv_sec = get_config()->keepalive_timeout,
-                         .tv_usec = 0};
-    if (setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
-      log_error("Failed to set timeout for client socket");
-    }
-
-    enqueue_job(client_sock, pool->queue);
+    enqueue_job(conn, pool->queue);
   }
-}
-
-void start_http_server(const char *ipstr, const char *port) {
-  int socket = get_server_sock(ipstr, port);
-  listen_on_server_sock(socket);
 }

@@ -4,8 +4,8 @@
 #include <stddef.h>
 
 typedef struct {
-  int capacity;
-  int length;
+  size_t capacity;
+  size_t length;
   char *data;
 } StringBuilder;
 

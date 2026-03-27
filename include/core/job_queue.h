@@ -1,12 +1,13 @@
 #ifndef JOB_QUEUE_H
 #define JOB_QUEUE_H
 
+#include "net/connection.h"
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 
 typedef struct job {
-  int client_sock;
+  Connection *conn;
   struct job *next;
 } Job;
 
@@ -23,8 +24,8 @@ typedef struct {
 } JobQueue;
 
 JobQueue *init_job_queue();
-int dequeue_job(JobQueue *);
-void enqueue_job(int, JobQueue *);
+Connection *dequeue_job(JobQueue *);
+void enqueue_job(Connection *, JobQueue *);
 void free_job_queue(JobQueue *);
 bool queue_empty(JobQueue *);
 

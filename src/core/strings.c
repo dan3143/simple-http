@@ -62,6 +62,7 @@ const char *http_code_to_description(HttpCode code) {
   case HTTP_CONTINUE:
     return "";
   }
+  return "";
 }
 
 HttpCode srv_err_to_http_err(ServerError err) {
