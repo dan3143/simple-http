@@ -190,7 +190,7 @@ tls_key = ./server.key
 * [x] Multithreading
 * [x] Persistent connections
 * [ ] Better HTTP/1.1 compliance
-* [ ] TLS support with OpenSSL
+* [X] TLS support with OpenSSL
 * [x] Read configuration from a file
 
 I don't expect to finish everything on this list, but I will try.
