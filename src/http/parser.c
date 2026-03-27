@@ -176,7 +176,7 @@ void parse_body(HttpParser *status) {
     status->err = SRV_AGAIN;
     return;
   }
-  status->offset = metadata_size + status->req.body.length + 1;
+  status->offset = metadata_size + status->req.body.length;
   status->err = SRV_OK;
   status->parsing_state = PARSING_COMPLETE;
   log_debug("Body complete:\n%s", status->req.body.buffer_data);
