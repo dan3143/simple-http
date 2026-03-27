@@ -18,6 +18,7 @@ int conn_write(Connection *, char *, size_t);
 int conn_write_all(Connection *, char *, size_t);
 int conn_send_file(Connection *, int, size_t);
 int init_ssl_context(const char *cert_path, const char *key_path);
+void free_ssl_context(void);
 void free_connection(Connection *);
 
 #endif

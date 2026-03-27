@@ -27,5 +27,6 @@ typedef struct {
 } WorkerContext;
 
 WorkerPool *init_worker_pool(size_t);
+void free_worker_pool(WorkerPool *);
 
 #endif

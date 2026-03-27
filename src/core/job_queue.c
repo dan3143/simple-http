@@ -15,6 +15,13 @@ JobQueue *init_job_queue() {
   return queue;
 }
 
+void stop_job_queue(JobQueue *queue) {
+  pthread_mutex_lock(&queue->mutex);
+  queue->stop = 1;
+  pthread_cond_broadcast(&queue->not_empty);
+  pthread_mutex_unlock(&queue->mutex);
+}
+
 void free_job_queue(JobQueue *queue) {
   Job *current = queue->head;
   Job *next_node;
@@ -24,6 +31,7 @@ void free_job_queue(JobQueue *queue) {
 
   while (current != NULL) {
     next_node = current->next;
+    free_connection(current->conn);
     free(current);
     current = next_node;
   }
