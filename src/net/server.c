@@ -78,17 +78,9 @@ ServerError send_response(Connection *c, HttpResponse *res,
 }
 
 void handle_incoming_connection(Connection *c, WorkerContext *ctx) {
-  struct sockaddr_storage addr;
+
   char ipstr[INET6_ADDRSTRLEN];
-  int port;
-  socklen_t len;
-
-  len = sizeof(addr);
-  getpeername(c->socket, (struct sockaddr *)&addr, &len);
-  get_addr_str((struct sockaddr *)&addr, ipstr);
-  port = get_port((struct sockaddr *)&addr);
-
-  log_debug("Handling connection from %s:%d", ipstr, port);
+  ip_str_from_socket(c->socket, ipstr);
 
   HttpParser parser;
   HttpResponse res;

@@ -13,5 +13,7 @@ char *get_file_extension(const char *);
 void get_addr_str(struct sockaddr *, char *);
 void print_hex_bytes(char *, size_t);
 int safe_str_to_int(char *, int *);
+void ip_str_from_socket(int socket, char *ipstr);
+int port_from_socket(int socket);
 
 #endif

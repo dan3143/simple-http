@@ -28,6 +28,20 @@ char *get_file_extension(const char *filename) {
   return dot + 1;
 }
 
+void ip_str_from_socket(int socket, char *ipstr) {
+  struct sockaddr_storage addr;
+  socklen_t len = sizeof(addr);
+  getpeername(socket, (struct sockaddr *)&addr, &len);
+  get_addr_str((struct sockaddr *)&addr, ipstr);
+}
+
+int port_from_socket(int socket) {
+  struct sockaddr_storage addr;
+  socklen_t len = sizeof(addr);
+  getpeername(socket, (struct sockaddr *)&addr, &len);
+  return get_port((struct sockaddr *)&addr);
+}
+
 void get_addr_str(struct sockaddr *sa, char *addr_str) {
   if (sa->sa_family == AF_INET) {
     struct sockaddr_in *ipv4 = (struct sockaddr_in *)sa;
