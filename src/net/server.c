@@ -150,7 +150,7 @@ void start_http_server() {
   sigaction(SIGTERM, &sa, NULL);
 
   if (get_config()->tls_enabled) {
-    server_sock = get_server_sock(get_config()->host, get_config()->https_port);
+    server_sock = get_server_sock(get_config()->host, get_config()->port);
     int status =
         init_ssl_context(get_config()->tls_cert, get_config()->tls_key);
     if (status == -1) {
@@ -158,7 +158,7 @@ void start_http_server() {
       return;
     }
   } else {
-    server_sock = get_server_sock(get_config()->host, get_config()->http_port);
+    server_sock = get_server_sock(get_config()->host, get_config()->port);
   }
 
   WorkerPool *pool = init_worker_pool(get_config()->n_threads);

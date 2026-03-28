@@ -7,8 +7,7 @@
 
 typedef struct {
   char host[INET6_ADDRSTRLEN];
-  char http_port[6];
-  char https_port[6];
+  char port[6];
   int n_threads;
   char doc_root[PATH_MAX];
   char tls_cert[PATH_MAX];

@@ -50,10 +50,9 @@ The currently supported options are:
 * `--verbose, -v`: Enable verbose logging
 * `--quiet, -q`: Suppress logging
 * `--config, -c`: Location of a `.ini` configuration file
-* `--tls-enabled, -s`: Whether to support TLS (not implemented)
-* `--tls-port, -t`: Port used to serve HTTPS (not implemented)
-* `--tls-key, -k`: Location of the private key for TLS (not implemented)
-* `--tls-certificate, -r`: Location of the certificate for TLS (not implemented)
+* `--tls-enabled, -s`: Whether to support TLS
+* `--tls-key, -k`: Location of the private key for TLS
+* `--tls-certificate, -r`: Location of the certificate for TLS
 
 
 # Configuration File
@@ -78,17 +77,9 @@ IP address the server will bind to.
 
 ### http_port
 
-Port used to serve HTTP.
+The port that the server will be bound to
 
 **Default value:** `8080`
-
----
-
-### https_port
-
-Port used to serve HTTPS.
-
-**Default value:** `8443`
 
 ---
 
@@ -171,8 +162,7 @@ Whether TLS will be enabled.
 ```
 # conf.ini
 host = 0.0.0.0
-http_port = 8080
-https_port = 8443
+port = 8443
 doc_root = ./
 index_file = index.html
 keepalive_timeout = 15

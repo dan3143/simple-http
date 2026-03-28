@@ -19,8 +19,7 @@ ServerConfig get_default_config() {
                          .tls_key = "./server.key",
                          .doc_root = "./",
                          .host = "0.0.0.0",
-                         .http_port = "8080",
-                         .https_port = "8443",
+                         .port = "8080",
                          .log_level = LOG_INFO,
                          .n_threads = 8,
                          .keepalive_timeout = 15,
@@ -54,13 +53,10 @@ void process_args(int argc, char **argv) {
       snprintf(g_config.host, sizeof(g_config.host), "%s", optarg);
       break;
     case 'p':
-      snprintf(g_config.http_port, sizeof(g_config.http_port), "%s", optarg);
+      snprintf(g_config.port, sizeof(g_config.port), "%s", optarg);
       break;
     case 's':
       g_config.tls_enabled = true;
-      break;
-    case 't':
-      snprintf(g_config.https_port, sizeof(g_config.https_port), "%s", optarg);
       break;
     case 'k':
       snprintf(g_config.tls_key, sizeof(g_config.tls_key), "%s", optarg);
@@ -86,11 +82,8 @@ void process_config_line(char *key, char *value, size_t key_len,
   if (strncmp(key, "host", key_len) == 0) {
     snprintf(g_config.host, value_len + 1, "%s", value);
   }
-  if (strncmp(key, "http_port", key_len) == 0) {
-    snprintf(g_config.http_port, value_len + 1, "%s", value);
-  }
-  if (strncmp(key, "https_port", key_len) == 0) {
-    snprintf(g_config.https_port, value_len + 1, "%s", value);
+  if (strncmp(key, "port", key_len) == 0) {
+    snprintf(g_config.port, value_len + 1, "%s", value);
   }
   if (strncmp(key, "doc_root", key_len) == 0) {
     snprintf(g_config.doc_root, value_len + 1, "%s", value);
